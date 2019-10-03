@@ -10,6 +10,7 @@ import numpy as np
 import scipy.io as sio
 from losses_tf import *
 from InverseNet_tf import *
+from InverseNet_tfv2 import *
 # from datagenerators import example_gen
 from measurment import *
 from utility import *
