@@ -20,7 +20,7 @@ loss3=tf.placeholder(shape=(), dtype=tf.double)
 tf.summary.scalar("Cyc_loss",loss3)
 
 loss4=tf.placeholder(shape=(), dtype=tf.double)
-tf.summary.scalar("Zero",loss4)
+tf.summary.scalar("KL_loss",loss4)
 
 cc = tf.placeholder(shape=(), dtype=tf.double)
 tf.summary.scalar("CC", cc)

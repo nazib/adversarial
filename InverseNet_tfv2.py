@@ -36,14 +36,14 @@ class InverseNet_tfv2:
         else:
             x = self.diff
             self.diffEncoder_layer0 = self.Downsample(x, 32, 2, 2)
-            self.layer0_f_flow, self.layer0_b_flow = self.Distribution(self.diffEncoder_layer0)
+            self.layer0_f_flow, self.layer0_b_flow, self.layer0_muF, self.layer0_sigF, self.layer0_muB, self.layer0_sigB = self.Distribution(self.diffEncoder_layer0)
             self.diffEncoder_layer1 = self.Downsample(self.diffEncoder_layer0, 32, 2, 2)
-            self.layer1_f_flow, self.layer1_b_flow = self.Distribution(self.diffEncoder_layer1)
+            self.layer1_f_flow, self.layer1_b_flow, self.layer1_muF, self.layer1_sigF, self.layer1_muB, self.layer1_sigB  = self.Distribution(self.diffEncoder_layer1)
 
             self.diffEncoder_layer2 = self.Downsample(self.diffEncoder_layer1, 32, 2, 2)
-            self.layer2_f_flow, self.layer2_b_flow = self.Distribution(self.diffEncoder_layer2)
+            self.layer2_f_flow, self.layer2_b_flow, self.layer2_muF, self.layer2_sigF, self.layer2_muB, self.layer2_sigB  = self.Distribution(self.diffEncoder_layer2)
             self.diffEncoder_layer3 = self.Downsample(self.diffEncoder_layer2, 32, 2, 2)
-            self.layer3_f_flow, self.layer3_b_flow = self.Distribution(self.diffEncoder_layer3)
+            self.layer3_f_flow, self.layer3_b_flow, self.layer3_muF, self.layer3_sigF, self.layer3_muB, self.layer3_sigB  = self.Distribution(self.diffEncoder_layer3)
 
     def FowwardFlow(self):
         warped = nrn.SpatialTransformer(interp_method='linear', indexing='ij')([self.srcEncoder_layer3, self.layer3_f_flow])
@@ -134,7 +134,7 @@ class InverseNet_tfv2:
         meanF, logvarF, meanB, logvarB = tf.split(feature, num_or_size_splits=4, axis=1)
         flowF = self.Reparameterize(meanF, logvarF, size)
         flowB = self.Reparameterize(meanB, logvarB, size)
-        return flowF, flowB
+        return flowF, flowB, meanF, logvarF, meanB, logvarB
 
     def Build(self):
 

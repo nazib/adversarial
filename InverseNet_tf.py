@@ -117,7 +117,7 @@ class InverseNet_tf:
             f_warp = tf.identity(f_warp,"Forward_im")
             i_warp = tf.identity(i_warp, "Inverse_im")
 
-        return f_warp, i_warp
+        return f_warp, i_warp, f_flow, i_flow
 
 class Discriminator:
 
