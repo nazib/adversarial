@@ -11,23 +11,22 @@ from scipy.interpolate import interpn
 import BatchDataReader
 
 loss1=tf.placeholder(shape=(), dtype=tf.double)
-tf.summary.scalar("G_loss",loss1)
+tf.summary.scalar("Total_loss",loss1)
 
 loss2=tf.placeholder(shape=(), dtype=tf.double)
-tf.summary.scalar("D_loss",loss2)
+tf.summary.scalar("CC_loss",loss2)
 
 loss3=tf.placeholder(shape=(), dtype=tf.double)
-tf.summary.scalar("D_source_loss",loss3)
+tf.summary.scalar("Cyc_loss",loss3)
 
 loss4=tf.placeholder(shape=(), dtype=tf.double)
-tf.summary.scalar("D_target_loss",loss4)
+tf.summary.scalar("Zero",loss4)
 
 cc = tf.placeholder(shape=(), dtype=tf.double)
 tf.summary.scalar("CC", cc)
 mi = tf.placeholder(shape=(), dtype=tf.double)
 tf.summary.scalar("MI", mi)
 merged = tf.summary.merge_all()
-
 
 
 def write_summary(i, sess, data, model_dir):

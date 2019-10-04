@@ -19,8 +19,8 @@ def generator_loss(fake_tgt,fake_src, src,tgt, Dis_fake_src,Dis_fake_tgt):
     inverse_loss = tf.reduce_mean(Dis_fake_src)
     forward_loss_reg = cc3D(fake_tgt, tgt)
     inverse_loss_reg = cc3D(fake_src, src)
-    cycle_loss= Cyclic_loss(fake_tgt,fake_src,src,tgt)
-    loss = (forward_loss + forward_loss_reg ) - (inverse_loss + inverse_loss_reg ) + cycle_loss
+    #cycle_loss= Cyclic_loss(fake_tgt,fake_src,src,tgt)
+    loss = (forward_loss + forward_loss_reg ) + (inverse_loss + inverse_loss_reg )
     return loss
 
 def discriminator_loss(real_output, fake_output):
@@ -72,8 +72,10 @@ def cc3D(I,J,win=[9, 9, 9]):
     return -1.0*cc
 
 def Cyclic_loss(fake_tgt,fake_src, src,tgt):
-
     src_cyclic = tf.reduce_mean(tf.abs(src-fake_src))
     tgt_cyclic = tf.reduce_mean(tf.abs(tgt-fake_tgt))
     return src_cyclic+tgt_cyclic
+
+def KL_loss():
+
 

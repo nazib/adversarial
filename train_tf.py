@@ -54,11 +54,14 @@ def train(config_file):
                                   name="source")
         tgt = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
                                   name="target")
+        diff = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
+                             name="target")
 
-        G_net = InverseNet_tf(src,tgt,vol_size, batch_size,False)
+        G_net = InverseNet_tfv2(src,tgt,diff,vol_size, batch_size,False)
 
         fake_tgt, fake_src = G_net.Build()
 
+        """
         Dis_input_src =  tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
                                   name="DiscriminatorInput_src")
         Dis_input_tgt = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
@@ -75,19 +78,19 @@ def train(config_file):
         Dis_tgt_loss = discriminator_loss(Dis_real_tgt,Dis_fake_tgt)
         Dis_src_loss = discriminator_loss(Dis_real_src,Dis_fake_src)
         Dis_loss = Dis_tgt_loss + Dis_src_loss
-        G_loss = generator_loss(fake_tgt, fake_src, G_net.src, G_net.tgt, Dis_fake_src,Dis_fake_tgt)
-
-
-        Dis_tgt_optimizer = tf.train.AdamOptimizer(0.0004, beta1=0.5, beta2=0.999).minimize(Dis_tgt_loss)
-        Dis_src_optimizer = tf.train.AdamOptimizer(0.0004, beta1=0.5, beta2=0.999).minimize(Dis_src_loss)
+        """
+        G_loss = generator_loss(fake_tgt, fake_src, G_net.src, G_net.tgt) # Dis_fake_src,Dis_fake_tgt)
+        Cyc_loss = Cyclic_loss(fake_tgt, fake_src, src, tgt)
+        total_loss = G_loss + Cyc_loss
+        #Dis_tgt_optimizer = tf.train.AdamOptimizer(0.0004, beta1=0.5, beta2=0.999).minimize(Dis_tgt_loss)
+        #Dis_src_optimizer = tf.train.AdamOptimizer(0.0004, beta1=0.5, beta2=0.999).minimize(Dis_src_loss)
         #Dis_optimizer = tf.train.AdamOptimizer(0.0001).minimize(Dis_loss)
-        G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.999).minimize(G_loss)
+        G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.999).minimize(total_loss)
 
-        Dis_tgt_optimizer = tf.train.AdamOptimizer(0.01).minimize(Dis_tgt_loss)
-        Dis_src_optimizer = tf.train.AdamOptimizer(0.01).minimize(Dis_src_loss)
+        #Dis_tgt_optimizer = tf.train.AdamOptimizer(0.01).minimize(Dis_tgt_loss)
+        #Dis_src_optimizer = tf.train.AdamOptimizer(0.01).minimize(Dis_src_loss)
         #Dis_optimizer = tf.train.AdamOptimizer(0.0001).minimize(Dis_loss)
-        G_optimizer = tf.train.AdamOptimizer(0.0001).minimize(G_loss)
-
+        #G_optimizer = tf.train.AdamOptimizer(0.0001).minimize()
 
         init = tf.global_variables_initializer()
         sess = tf.Session(config=configurnet)
@@ -127,18 +130,20 @@ def train(config_file):
 
             src_patch = src_im[step]
             tgt_patch = tgt_im[step]
+            diff_patch = tgt_patch - src_patch
 
             # Training Discriminator Five times to make Network Stable
+            """
             for k in range(5):
                 d_tgt, _ = sess.run([Dis_tgt_loss,Dis_tgt_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch, Dis_input_src: src_patch})
                 d_src, _ = sess.run([Dis_src_loss, Dis_src_optimizer],feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_src: src_patch,Dis_input_tgt: tgt_patch})
+            """
+            _, t_loss, g_loss, cyc_loss = sess.run([total_loss, G_loss, cyc_loss, G_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, diff: diff_patch})
 
-            _, g_loss = sess.run([G_optimizer, G_loss], feed_dict={src: src_patch, tgt: tgt_patch,
-                                         Dis_input_src: src_patch, Dis_input_tgt: tgt_patch})
-
-            train_loss = np.double([g_loss,d_tgt+d_src, d_src, d_tgt, cc, mi])
+            train_loss = np.double([t_loss, g_loss, cyc_loss, 0.0, 0.0,0.0])
             #print("Start: "+str(start)+" Paris : " + str(pairs) + " Step :" + str(step) + " Patch :" + str(s) + " Loss: " + str(train_loss))
-            message = "Start:{0} Paris :{1},{2} Step :{3} G_Loss:{4} D_tgt: {5} D_src:{6} \n".format(start, pairs[0], pairs[1], step, g_loss,d_tgt,d_src)
+            message = "Start:{0} Paris :{1},{2} Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} \n"\
+                .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss)
             print (message)
 
             model_saving_dir = model_dir+"/models"
