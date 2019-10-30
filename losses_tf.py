@@ -2,48 +2,17 @@ import tensorflow as tf
 import numpy as np
 import sys
 
-def generator_loss(fake_tgt,fake_src, src,tgt):
-    #### Basic GAN loss ###
-    #forward_loss = -tf.nn.sigmoid_cross_entropy_with_logits(logits=Dis_fake_tgt,labels=tf.zeros_like(Dis_fake_tgt))
-    #inverse_loss = -tf.nn.sigmoid_cross_entropy_with_logits(logits=Dis_fake_src,labels=tf.zeros_like(Dis_fake_src))
-    '''
-    ### GAN loss with CC ###
-    forward_loss = -tf.reduce_mean(tf.log(Dis_fake_tgt))
-    inverse_loss = -tf.reduce_mean(tf.log(Dis_fake_src))
-    forward_loss_reg =cc3D(fake_tgt,tgt)
-    inverse_loss_reg =cc3D(fake_src,src)
-    loss = (forward_loss + forward_loss_reg) - (inverse_loss + inverse_loss_reg)
-    '''
-    ### WGAN Loss ###
-    forward_loss = 0.0#tf.reduce_mean(Dis_fake_tgt)
-    inverse_loss = 0.0#tf.reduce_mean(Dis_fake_src)
-    forward_loss_reg = cc3D(fake_tgt, tgt)
-    inverse_loss_reg = cc3D(fake_src, src)
-    #cycle_loss= Cyclic_loss(fake_tgt,fake_src,src,tgt)
-    loss = (forward_loss + forward_loss_reg ) + (inverse_loss + inverse_loss_reg )
+def generator_loss(Dis_fake_src,Dis_fake_tgt):
+    forward_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=Dis_fake_tgt,labels=tf.ones_like(Dis_fake_tgt)))
+    inverse_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=Dis_fake_src,labels=tf.ones_like(Dis_fake_src)))
+    loss = forward_loss  + inverse_loss
     return loss
 
 def discriminator_loss(real_output, fake_output):
 
-    #real_loss = -tf.nn.sigmoid_cross_entropy_with_logits(logits=real_output,labels=tf.zeros_like(real_output))
-    #fake_loss = -tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_output,labels=-tf.ones_like(fake_output))
-    #total_loss = tf.reduce_mean(real_loss + fake_loss)
-    #total_loss = tf.reduce_mean(tf.log(real_output) + tf.log(1. - fake_output))
-
-    ### WGAN LOSS###
-    #real_loss = tf.reduce_mean(real_output)
-    #fake_loss = tf.reduce_mean(fake_output)
-    #total_loss = real_loss - fake_loss
-    
-    ### Triplet Loss ###
-    #real_loss = tf.reduce_mean(real_output)
-    #fake_loss = tf.reduce_mean(fake_output)
-    #total_loss = tf.maximum((real_loss - fake_loss)+0.005, 0.0)
-
-    ## Hinge loss ####
-    real_loss = tf.reduce_mean(tf.nn.relu(1.0 - real_output))
-    fake_loss = tf.reduce_mean(tf.nn.relu(1.0 + fake_output))
-    total_loss = real_loss + fake_loss
+    real_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=real_output,labels=tf.ones_like(real_output)))
+    fake_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_output,labels=tf.zeros_like (fake_output)))
+    total_loss = tf.reduce_mean(real_loss + fake_loss)
     return total_loss
 
 def cc3D(I,J,win=[9, 9, 9]):
@@ -71,68 +40,121 @@ def cc3D(I,J,win=[9, 9, 9]):
 
     return -1.0*cc
 
-def Cyclic_loss(fake_tgt,fake_src, src,tgt):
-    src_cyclic = tf.reduce_mean(tf.abs(src-fake_src))
-    tgt_cyclic = tf.reduce_mean(tf.abs(tgt-fake_tgt))
+def Cyclic_loss(src_cyc,tgt_cyc, src,tgt):
+    #src_cyclic = tf.reduce_mean(tf.abs(src-src_cyc))
+    #tgt_cyclic = tf.reduce_mean(tf.abs(tgt-tgt_cyc))
+    src_cyclic = (1 - tf.reduce_mean(tf.image.ssim(src_cyc, src, max_val=1.0)[0])) + 0.00005 * tf.reduce_sum(tf.squared_difference(src_cyc, src))
+    tgt_cyclic = (1 - tf.reduce_mean(tf.image.ssim(tgt_cyc, tgt, max_val=1.0)[0])) + 0.00005 * tf.reduce_sum(tf.squared_difference(tgt_cyc, tgt))
+    return src_cyclic+tgt_cyclic
+
+def Cyclic_lossl2(src_cyc,tgt_cyc, src,tgt):
+    src_cyclic = tf.reduce_mean(tf.square(src-src_cyc))
+    tgt_cyclic = tf.reduce_mean(tf.square(tgt-tgt_cyc))
     return src_cyclic+tgt_cyclic
 
 def log_normal_pdf(sample, mean, logvar, raxis=1):
-  #log2pi = tf.log(2. * np.pi)
-  return tf.reduce_sum(
+    log2pi = tf.log(2. * np.pi)
+    
+    kl = tf.reduce_sum(
       -.5 * ((sample - mean) ** 2. * tf.exp(-logvar)),
       axis=raxis)
+    kl = kl/(4*64*64*64*3)
+    return kl
+
+def simple_kl(mean,logvar):
+    kl= 1 + logvar - tf.square(mean) - tf.exp(logvar)
+    kl = -0.5 * tf.reduce_sum(kl, 1)
+    kl = kl/(4*64*64*64*3)
+    return kl
+
+def flow_dist_loss(predict_flow, labelFlow):
+
+    pf_flow = predict_flow[:, :, :, :, 0:3]
+    pb_flow = predict_flow[:, :, :, :, 3:6]
+
+    lf_flow = labelFlow[:, :, :, :, 0:3]
+    lb_flow = labelFlow[:, :, :, :, 3:6]
+    # total vaiartoion loss
+    f_variation = -tf.reduce_mean(tf.abs(pf_flow - lf_flow))
+    b_variation = -tf.reduce_mean(tf.abs(pb_flow - lb_flow))
+    return f_variation + b_variation
+
 
 def KL_loss(model):
-    '''
-    ### For layer 0 Forward and Backward KL loss ###
-    dim = model.layer0_f_flow.get_shape().as_list()
-    dim = np.prod(dim[1:])
-    l0_pdf_Fp = log_normal_pdf(tf.reshape(model.layer0_f_flow,[-1,dim]),0.0,0.0)
-    l0_pdf_Fq = log_normal_pdf(tf.reshape(model.layer0_f_flow, [-1,dim]), model.layer0_muF, model.layer0_sigF)
-    kl_loss_l0F = l0_pdf_Fp - l0_pdf_Fq
 
-    l0_pdf_Bp = log_normal_pdf(tf.reshape(model.layer0_b_flow, [-1,dim]), 0.0, 0.0)
-    l0_pdf_Bq = log_normal_pdf(tf.reshape(model.layer0_b_flow, [-1, dim]), model.layer0_muB, model.layer0_sigB)
-    kl_loss_l0B = l0_pdf_Bp - l0_pdf_Bq
+    kl_loss_l3F = simple_kl(model.layer3_muF, model.layer3_sigF)
+    kl_loss_l3B = simple_kl(model.layer3_muB, model.layer3_sigB)
 
-    ### For layer 1 Forward and Backward KL loss ###
-    dim = model.layer1_f_flow.get_shape().as_list()
-    dim = np.prod(dim[1:])
-    l1_pdf_Fp = log_normal_pdf(tf.reshape(model.layer1_f_flow, [-1,dim]), 0.0, 0.0)
-    l1_pdf_Fq = log_normal_pdf(tf.reshape(model.layer1_f_flow, [-1,dim]), model.layer1_muF, model.layer1_sigF)
-    kl_loss_l1F = l1_pdf_Fp - l1_pdf_Fq
+    total_KL_loss = kl_loss_l3B + kl_loss_l3F
+    return tf.reduce_mean(total_KL_loss)
 
-    l1_pdf_Bp = log_normal_pdf(tf.reshape(model.layer1_b_flow, [-1, dim]), 0.0, 0.0)
-    l1_pdf_Bq = log_normal_pdf(tf.reshape(model.layer1_b_flow, [-1, dim]), model.layer1_muB, model.layer1_sigB)
-    kl_loss_l1B = l1_pdf_Bp - l1_pdf_Bq
 
-    ### For layer 2 Forward and Backward KL loss ###
-    dim = model.layer2_f_flow.get_shape().as_list()
-    dim = np.prod(dim[1:])
-    l2_pdf_Fp = log_normal_pdf(tf.reshape(model.layer2_f_flow, [-1, dim]), 0.0, 0.0)
-    l2_pdf_Fq = log_normal_pdf(tf.reshape(model.layer2_f_flow, [-1, dim]), model.layer2_muF, model.layer2_sigF)
-    kl_loss_l2F = l2_pdf_Fp - l2_pdf_Fq
+def MI(y_pred,y_true,bin_centers,
+                            sigma_ratio=0.5,
+                            max_clip=1,
+                            crop_background=False):
+    """
+    Mutual Information for image-image pairs
 
-    l2_pdf_Bp = log_normal_pdf(tf.reshape(model.layer2_b_flow, [-1,dim]), 0.0, 0.0)
-    l2_pdf_Bq = log_normal_pdf(tf.reshape(model.layer2_b_flow, [-1,dim]), model.layer2_muB, model.layer2_sigB)
-    kl_loss_l2B = l2_pdf_Bp - l2_pdf_Bq
-    '''
-    ### For layer 3 Forward and Backward KL loss ###
-    dim = model.layer3_f_flow.get_shape().as_list()
-    dim = np.prod(dim[1:])
-    l3_pdf_Fp = log_normal_pdf(tf.reshape(model.layer3_f_flow, [-1,dim]), 0.0, 0.0)
-    l3_pdf_Fq = log_normal_pdf(tf.reshape(model.layer3_f_flow, [-1, dim]), model.layer3_muF, model.layer3_sigF)
-    kl_loss_l3F = l3_pdf_Fp - l3_pdf_Fq
+    This function assumes that y_true and y_pred are both (batch_sizexheightxwidthxdepthxchan)
 
-    l3_pdf_Bp = log_normal_pdf(tf.reshape(model.layer3_b_flow, [-1, dim]), 0.0, 0.0)
-    l3_pdf_Bq = log_normal_pdf(tf.reshape(model.layer3_b_flow, [-1, dim]), model.layer3_muB, model.layer3_sigB)
-    kl_loss_l3B = l3_pdf_Bp - l3_pdf_Bq
-    '''
-    total_KL_loss = kl_loss_l0B + kl_loss_l0F+kl_loss_l1B + kl_loss_l1F\
-                    +kl_loss_l2B + kl_loss_l2F\
-                    + kl_loss_l3B + kl_loss_l3F
-    '''
-    return tf.reduce_mean(kl_loss_l3F+kl_loss_l3B)
+    """
+
+    """ prepare MI. """
+    vol_bin_centers = tf.Variable(bin_centers)
+    num_bins = len(bin_centers)
+    sigma = np.mean(np.diff(bin_centers)) * sigma_ratio
+    preterm = tf.Variable(1 / (2 * np.square(sigma)),dtype=tf.float32)
+
+    """ soft mutual info """
+    y_pred = tf.clip_by_value(y_pred, 0, max_clip)
+    y_true = tf.clip_by_value(y_true, 0, max_clip)
+
+    if crop_background:
+        # does not support variable batch size
+        thresh = 0.0001
+        padding_size = 20
+        filt = tf.ones([padding_size, padding_size, padding_size, 1, 1])
+
+        smooth = tf.nn.conv3d(y_true, filt, [1, 1, 1, 1, 1], "SAME")
+        mask = smooth > thresh
+        # mask = K.any(K.stack([y_true > thresh, y_pred > thresh], axis=0), axis=0)
+        y_pred = tf.boolean_mask(y_pred, mask)
+        y_true = tf.boolean_mask(y_true, mask)
+        y_pred = tf.expand_dims(tf.expand_dims(y_pred, 0), 2)
+        y_true = tf.expand_dims(tf.expand_dims(y_true, 0), 2)
+
+    else:
+        # reshape: flatten images into shape (batch_size, heightxwidthxdepthxchan, 1)
+        y_true = tf.reshape(y_true, (-1, tf.reduce_prod(tf.shape(y_true)[1:])))
+        y_true = tf.expand_dims(y_true, 2)
+        y_pred = tf.reshape(y_pred, (-1, tf.reduce_prod(tf.shape(y_pred)[1:])))
+        y_pred = tf.expand_dims(y_pred, 2)
+
+    nb_voxels = tf.cast(tf.shape(y_pred)[1], tf.float32)
+
+    # reshape bin centers to be (1, 1, B)
+    o = [1, 1, np.prod(vol_bin_centers.get_shape().as_list())]
+    vbc = tf.reshape(vol_bin_centers, o)
+
+    # compute image terms
+    I_a = tf.exp(- preterm * tf.square(y_true - vbc))
+    I_a /= tf.reduce_sum(I_a, -1, keepdims=True)
+
+    I_b = tf.exp(- preterm * tf.square(y_pred - vbc))
+    I_b /= tf.reduce_sum(I_b, -1, keepdims=True)
+
+    # compute probabilities
+    I_a_permute = tf.transpose(I_a, (0, 2, 1))
+    pab = tf.matmul(I_a_permute, I_b)  # should be the right size now, nb_labels x nb_bins
+    pab /= nb_voxels
+    pa = tf.reduce_mean(I_a, 1, keepdims=True)
+    pb = tf.reduce_mean(I_b, 1, keepdims=True)
+
+    papb = tf.matmul(tf.transpose(pa, (0, 2, 1)), pb) + 1e-8
+    mi = tf.reduce_sum(tf.reduce_sum(pab * tf.log(pab / papb + 1e-8), 1), 1)
+    return -tf.reduce_mean(mi)
+
 
 
 

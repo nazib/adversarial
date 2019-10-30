@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -N 10%_advers_CC+fake
+#PBS -N 25%_GAN_CC_CYC_dis_300
 #PBS -l walltime=100:00:00
 #PBS -l mem=64Gb
 #PBS -l ncpus=1

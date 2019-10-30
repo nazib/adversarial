@@ -31,11 +31,11 @@ def train(config_file):
 
     training_data = glob.glob(config.base_directory + "/train/*.nii.gz")
     training_data.sort()
-    validation_data = training_data[len(training_data)-3:len(training_data)]
-    training_data = training_data[0:len(training_data)-3]
+    #validation_data = training_data[len(training_data)-3:len(training_data)]
+    #training_data = training_data[0:len(training_data)-3]
     random.shuffle(training_data)
 
-    train_dataset_reader = BatchDataReader.BatchDataset(training_data,batch_size)
+    train_dataset_reader = BatchDataReader.BatchDataset(training_data,batch_size,config.Number_of_patch)
 
     model_dir = config.base_directory + config.Model_name
     if not os.path.isdir(model_dir):
@@ -54,20 +54,19 @@ def train(config_file):
                                   name="source")
         tgt = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
                                   name="target")
-        diff = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
+        diff = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 6),
                              name="target")
 
-        G_net = InverseNet_tfv2(src, tgt, diff, vol_size, batch_size, False)
+        G_net = InverseNet_tf(src, tgt, vol_size, batch_size, False)
 
-        fake_tgt, fake_src, f_flow, i_flow = G_net.Build()
+        fake_tgt, fake_src, src_cyc, tgt_cyc, Flow = G_net.Build()
 
-        """
         Dis_input_src =  tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
                                   name="DiscriminatorInput_src")
         Dis_input_tgt = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 1),
                                        name="DiscriminatorInput_tgt")
 
-        Dis_real_tgt = discriminator(Dis_input_tgt,fake_tgt, "target", False)
+        Dis_real_tgt = discriminator(Dis_input_tgt, fake_tgt, "target", False)
         Dis_real_src = discriminator(Dis_input_src, fake_src, "source", False)
 
         Dis_fake_tgt = discriminator(Dis_input_src,fake_tgt,"target",True)
@@ -78,20 +77,16 @@ def train(config_file):
         Dis_tgt_loss = discriminator_loss(Dis_real_tgt,Dis_fake_tgt)
         Dis_src_loss = discriminator_loss(Dis_real_src,Dis_fake_src)
         Dis_loss = Dis_tgt_loss + Dis_src_loss
-        """
-        G_loss = generator_loss(fake_tgt, fake_src, G_net.src, G_net.tgt) # Dis_fake_src,Dis_fake_tgt)
-        Cyc_loss = Cyclic_loss(fake_tgt, fake_src, G_net.src, G_net.tgt)
-        kl_loss = KL_loss(G_net)
-        total_loss = G_loss + Cyc_loss + kl_loss
-        #Dis_tgt_optimizer = tf.train.AdamOptimizer(0.0004, beta1=0.5, beta2=0.999).minimize(Dis_tgt_loss)
-        #Dis_src_optimizer = tf.train.AdamOptimizer(0.0004, beta1=0.5, beta2=0.999).minimize(Dis_src_loss)
-        #Dis_optimizer = tf.train.AdamOptimizer(0.0001).minimize(Dis_loss)
-        G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.5, beta2=0.999).minimize(total_loss)
 
-        #Dis_tgt_optimizer = tf.train.AdamOptimizer(0.01).minimize(Dis_tgt_loss)
-        #Dis_src_optimizer = tf.train.AdamOptimizer(0.01).minimize(Dis_src_loss)
+        G_loss = generator_loss(Dis_fake_src,Dis_fake_tgt)
+        bins = np.arange(0,32,1,dtype=np.float32)
+        CC_loss = MI(fake_tgt,tgt,bins) + MI(fake_src,src,bins)#cc3D(fake_tgt, tgt) + cc3D(fake_src, src)
+        Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt)
+     
+        Dis_optimizer = tf.train.GradientDescentOptimizer(0.00002).minimize(Dis_loss)
         #Dis_optimizer = tf.train.AdamOptimizer(0.0001).minimize(Dis_loss)
-        #G_optimizer = tf.train.AdamOptimizer(0.0001).minimize()
+        total_loss = 0.01* G_loss + CC_loss +Cyc_loss
+        G_optimizer = tf.train.AdamOptimizer(0.0001,beta1=0.9,beta2=0.999,epsilon=1e-8).minimize(total_loss)
 
         init = tf.global_variables_initializer()
         sess = tf.Session(config=configurnet)
@@ -100,12 +95,7 @@ def train(config_file):
         model_saver = tf.train.Saver(max_to_keep=None)
 
     start = config.iteration_start
-    iteration = int(2500 / batch_size)
-    # n_iteration=iteration*len(train_patch_pairs)
-
-    ep_st = 0
-    step_st = 0
-    paris_st = 0
+    iteration = int(config.Number_of_patch / batch_size)
 
     if start > 0:
         if start > iteration:
@@ -117,12 +107,12 @@ def train(config_file):
     # total_pairs = len(train_patch_pairs)*(len(train_patch_pairs)-1)
     x = np.arange(len(training_data))
     total_pairs = list(permutations(x, 2))
-    random.shuffle(total_pairs)
+    #random.shuffle(total_pairs)
 
     for pairs in list(total_pairs):
 
-        src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0],pairs[1], config.patch_size)
-        print ("2500 Patches are selected")
+        src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1], config.patch_size)
+        print ("{0} Patches are selected".format(config.Number_of_patch))
         s = 0
         cc = 0
         mi = 0
@@ -131,21 +121,35 @@ def train(config_file):
 
             src_patch = src_im[step]
             tgt_patch = tgt_im[step]
-            diff_patch = tgt_patch - src_patch
-
-            # Training Discriminator Five times to make Network Stable
-            """
+            #diff_patch = np.abs(tgt_patch - src_patch)
+            #if start ==0:
+            #flow = Generate_deformation(diff_patch, vol_size, 10)
+            #flow = np.random.rand(batch_size, vol_size[0], vol_size[1], vol_size[2], 6)
+            #Training Discriminator Five times to make Network Stable
+            '''
             for k in range(5):
-                d_tgt, _ = sess.run([Dis_tgt_loss,Dis_tgt_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch, Dis_input_src: src_patch})
-                d_src, _ = sess.run([Dis_src_loss, Dis_src_optimizer],feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_src: src_patch,Dis_input_tgt: tgt_patch})
-            """
-            t_loss, g_loss, cyc_loss, kl,_ = sess.run([total_loss, G_loss, Cyc_loss, kl_loss, G_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, diff:diff_patch})
+                i = np.random.randint(0,624)
+                src_p = src_im[i]
+                tgt_p = tgt_im[i]
+            '''
+            d_tgt,d_src, _ = sess.run([Dis_tgt_loss, Dis_src_loss,Dis_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch, Dis_input_src: src_patch})
 
-            train_loss = np.double([t_loss, g_loss, cyc_loss, kl, 0.0,0.0])
+            t_loss, g_loss, cyc_loss, _ = sess.run([total_loss, G_loss, Cyc_loss, G_optimizer],
+                                                                  feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt:tgt_patch, Dis_input_src:src_patch})
+
+            train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt,d_src, 0.0])
             #print("Start: "+str(start)+" Paris : " + str(pairs) + " Step :" + str(step) + " Patch :" + str(s) + " Loss: " + str(train_loss))
-            message = "Start:{0} Paris :{1},{2} Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} KL_loss:{7}\n"\
-                .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss,kl)
+            message = "Start:{0} Paris :{1},{2} Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} D_tgt:{7} D_src:{8}\n"\
+                .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss,d_tgt,d_src)
             print (message)
+
+            if t_loss >= -0.1:
+                file = open("Detect.txt", "a")
+                data = "Target:{0} Source:{1} Patch:{2}  iteration: {3} LossValue:{4}".format(training_data[pairs[0]], training_data[pairs[1]],
+                                                                              step, start, t_loss)
+                file.write(data)
+                file.write("\n")
+                file.close()
 
             model_saving_dir = model_dir+"/models"
 
@@ -163,14 +167,6 @@ def train(config_file):
                     #train_loss = [g_loss[0], d_loss, d_s_loss, d_t_loss, cc, mi]
 
             if start % 10== 0:
-                '''
-                summary = tf.Summary()
-                summary.value.add(tag="D-loss_tgt_total", simple_value=np.mean(d_t_loss))
-                summary.value.add(tag="D-loss_src_total", simple_value=np.mean(d_s_loss))
-                summary.value.add(tag="G-loss", simple_value=g_loss)
-                writer.add_summary(summary,global_step=step)
-                print(start)
-                '''
                 write_summary(start, sess, train_loss, model_dir)
 
             s = s + batch_size

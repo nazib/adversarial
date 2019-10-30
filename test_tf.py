@@ -11,6 +11,7 @@ from scipy.interpolate import interpn
 import time
 # from DenseDeformOld import DenseDeformNet
 from InverseNet_tf import *
+from InverseNet_tfv2 import *
 import nibabel as nib
 import h5py
 from measurment import *
@@ -79,8 +80,10 @@ def test(configFile):
         sess.run(tf.global_variables_initializer())
         model_dir = os.path.join(config.TestModelDir,"models")
         model_name = model_dir.split('/')[-2]
-        saver = tf.train.import_meta_graph(model_dir +"/"+ model_name + "-0.meta")
-        saver.restore(sess, model_dir + "/" + model_name + "-"+config.TestModelNumber)
+        #saver = tf.train.import_meta_graph(model_dir +"/"+ model_name + "-0.meta")
+        saver = tf.train.import_meta_graph(model_dir + "/" +"-0.meta")
+        #saver.restore(sess, model_dir + "/" + model_name + "-"+config.TestModelNumber)
+        saver.restore(sess, model_dir + "/" + "-" + config.TestModelNumber)
         #print (tf.contrib.framework.list_variables(model_dir +"/"+ model_name + "-0.meta"))
         src_place = sess.graph.get_tensor_by_name("source:0")
         tgt_place = sess.graph.get_tensor_by_name("target:0")

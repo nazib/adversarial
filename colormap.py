@@ -133,12 +133,12 @@ def overlay_slices(slice1,slice2,config_obj,file_no):
     overlay1 = cv2.rectangle(overlay1,(260,32),(260+px,32+py),(255,255,255),3)
     overlay1 = cv2.rectangle(overlay1,(90,260),(90+px,260+py),(255,255,255),3)
     overlay1 = cv2.rectangle(overlay1,(450,260),(450+px,260+py),(255,255,255),3)
-    
+    '''
     overlay1 = draw_box(overlay1,(32,260,332,560))
     overlay1 = draw_box(overlay1,(260,90,260+px,90+px))
     overlay1 = draw_box(overlay1,(260,450,260+px,450+py))
     overlay1 = draw_text(overlay1)
-    '''
+
     
     overlay1_name = "OV_00{0}_{1}_{2}{3}.jpg".format(file_no,config_obj.TestSliceNo,config_obj.TestModelNumber,config_obj.TestModelType)
     imsave(overlay1_name, overlay1)

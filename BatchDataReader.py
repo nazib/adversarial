@@ -11,7 +11,7 @@ class BatchDataset:
     batch_offset = 0
     epochs_completed = 0
 
-    def __init__(self, data_list, batch_size, number_of_patches=2500,mean_crt=0.05):   ### 0.1 for 10% and 0.2 for 25%
+    def __init__(self, data_list, batch_size, number_of_patches=2500, mean_crt=0.2):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
         self.image_files = data_list
         self.patch_num = number_of_patches
