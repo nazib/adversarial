@@ -1,0 +1,13 @@
+/home/n9614885/.profile: line 29: “source: command not found
+/home/n9614885/.profile: line 30: “source: command not found
+/home/n9614885/.profile: line 31: “source: command not found
+2019-11-01 16:53:35.324144: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2019-11-01 16:53:39.193601: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1392] Found device 0 with properties: 
+name: Tesla M40 24GB major: 5 minor: 2 memoryClockRate(GHz): 1.112
+pciBusID: 0000:02:00.0
+totalMemory: 22.41GiB freeMemory: 22.30GiB
+2019-11-01 16:53:39.193638: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1471] Adding visible gpu devices: 0
+2019-11-01 16:53:39.544086: I tensorflow/core/common_runtime/gpu/gpu_device.cc:952] Device interconnect StreamExecutor with strength 1 edge matrix:
+2019-11-01 16:53:39.544128: I tensorflow/core/common_runtime/gpu/gpu_device.cc:958]      0 
+2019-11-01 16:53:39.544134: I tensorflow/core/common_runtime/gpu/gpu_device.cc:971] 0:   N 
+2019-11-01 16:53:39.544274: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1084] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 20650 MB memory) -> physical GPU (device: 0, name: Tesla M40 24GB, pci bus id: 0000:02:00.0, compute capability: 5.2)

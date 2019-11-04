@@ -38,9 +38,8 @@ class Configuration:
         self.Regularizer = float(config.get('Network Settings','Regularizer'))
         self.ModelType = config.get('Network Settings','Modeltype')
         self.GPU = config.get('Network Settings','gpuid')
-        self.HalfNet = config.get('Network Settings','Half_net')
-        self.BN = config.get('Network Settings','BN')
-        self.Dilation = config.get('Network Settings', 'Dilation')
+        self.similarity_loss = config.get('Network Settings','similarity_loss')
+        self.cyc_loss = config.get('Network Settings','cyc_loss')
 
     def PrintConfiguration(self):
         print(" The network is Running with Following parameters")

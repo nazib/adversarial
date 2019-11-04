@@ -10,7 +10,7 @@ import numpy as np
 import scipy.io as sio
 from losses_tf import *
 from InverseNet_tf import *
-from InverseNet_tfv2 import *
+from InverseNet_tfv3 import *
 # from datagenerators import example_gen
 from measurment import *
 from utility import *
@@ -56,8 +56,10 @@ def train(config_file):
                                   name="target")
         diff = tf.placeholder(tf.float32, shape=(None, vol_size[0], vol_size[1], vol_size[2], 6),
                              name="target")
-
-        G_net = InverseNet_tf(src, tgt, vol_size, batch_size, False)
+        if config.ModelType == 'Dense':
+            G_net = InverseNetDense_tf(src, tgt, vol_size, batch_size, False)
+        else:
+            G_net = InverseNet_tf(src, tgt, vol_size, batch_size, False)
 
         fake_tgt, fake_src, src_cyc, tgt_cyc, Flow = G_net.Build()
 
@@ -79,14 +81,20 @@ def train(config_file):
         Dis_loss = Dis_tgt_loss + Dis_src_loss
 
         G_loss = generator_loss(Dis_fake_src,Dis_fake_tgt)
-        bins = np.arange(0,32,1,dtype=np.float32)
-        CC_loss = MI(fake_tgt,tgt,bins) + MI(fake_src,src,bins)#cc3D(fake_tgt, tgt) + cc3D(fake_src, src)
-        Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt)
+        bins = np.arange(0, 32, 1,dtype=np.float32)
+
+        if config.similarity_loss == 'cc' or config.similarity_loss == 'CC':
+            similarity = cc3D(fake_tgt, tgt) + cc3D(fake_src, src)
+        if config.similarity_loss == 'mi' or config.similarity_loss == 'MI':
+            similarity = MI(fake_tgt, tgt, bins) + MI(fake_src, src, bins)
+        if config.cyc_loss == 'on':
+            Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt)
      
         Dis_optimizer = tf.train.GradientDescentOptimizer(0.00002).minimize(Dis_loss)
-        #Dis_optimizer = tf.train.AdamOptimizer(0.0001).minimize(Dis_loss)
-        total_loss = 0.01* G_loss + CC_loss +Cyc_loss
-        G_optimizer = tf.train.AdamOptimizer(0.0001,beta1=0.9,beta2=0.999,epsilon=1e-8).minimize(total_loss)
+
+        total_loss = 0.01 * G_loss + similarity + Cyc_loss
+
+        G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.9, beta2=0.999, epsilon=1e-8).minimize(total_loss)
 
         init = tf.global_variables_initializer()
         sess = tf.Session(config=configurnet)
