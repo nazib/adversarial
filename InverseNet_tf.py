@@ -192,7 +192,7 @@ def discriminator(Input1, Input2, type, reuse = False):
         x = tf.nn.leaky_relu(x, 0.2)
         x = tf.layers.flatten(x)
         #x = tf.tanh(x,name='Tanh')
-        #x = tf.sigmoid(x)
+        x = tf.nn.sigmoid(x)
         if not reuse:
             x = tf.identity(x, "Real")
         else:

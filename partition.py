@@ -12,6 +12,9 @@ from matplotlib import pyplot as plt
 #import tensorflow as tf
 import SimpleITK as sitk
 import math
+import pandas as pd
+#df = pd.DataFrame(columns=['Row','Col','Depth','Mean','Flag'])
+data = []
 
 class PatchUtility:
     def __init__(self,patchShape,imageShape,Overlap,patches=[],image=[]):
@@ -85,6 +88,16 @@ class PatchUtility:
             patch = self.image[region]
 
             self.patches.append(patch)
+            #file = open("patch_mean.txt","a")
+            if np.mean(patch)<0.2:
+                k= "Row :{0}, Col:{1}, Dpth:{2}, Mean:{3}\n".format(all_starts[0], all_starts[1], all_starts[2], np.mean(patch))
+                data.append([all_starts[0], all_starts[1], all_starts[2], np.mean(patch),0])
+            else:
+                k = "Row :{0}, Col:{1}, Dpth:{2}, Mean:{3}, Flaged\n".format(all_starts[0], all_starts[1], all_starts[2],
+                                                                  np.mean(patch))
+                data.append([all_starts[0], all_starts[1], all_starts[2], np.mean(patch),1])
+            #file.write(k)
+            #file.close()
             #if patch.shape!=(64,64,64):
             #    pdb.set_trace()
             #    print(" Shape :"+str(patch.shape))
@@ -494,18 +507,24 @@ if __name__=="__main__":
     output_dir=data_dir
 
     for i in range(0,len(files)):
+        data =[]
         moving = nib.load(files[i])
         moving_vol= moving.get_data()
 
         ### For 25% resolution ####
-        #padded =set_mid_img(moving_vol,(540,540,169),(576,576,192))
+        padded =set_mid_img(moving_vol,(540,540,169),(576,576,192))
         #mov_patches = extract_patches_tf(padded,64,32)
-        patches = h5py.File(data_dir+"/0.5overlap/moving_2.h5")['moving']
-        patchEx = PatchUtility((64, 64, 64),(576,576,192),0.5,patches=patches,image=[])
-        #mov_patches = patchEx.extract_patches()
-        fused = patchEx.combine_patches()
+        #patches = h5py.File(data_dir+"/0.5overlap/moving_2.h5")['moving']
+        patchEx = PatchUtility((64, 64, 64), (576,576,192), 0.0, patches=[],image=padded)
+        mov_patches = patchEx.extract_patches()
+        #fused = patchEx.combine_patches()
         #mov_patches = list2array(extract_patches(padded,(64,64,64),0.0))
         print("Number of patches : "+str(len(mov_patches)))
+
+
+        data = np.asarray(data)
+        df = pd.DataFrame(data)
+        df.to_csv(files[i] + ".csv")
         #fused = combine_patches(mov_patches, (576, 576, 192), 0.5)
         #sl = fused[:,:,86]*255.0
         #cv2.imwrite('/home/n9614885/patchvm/fused_slice.jpg',sl)
@@ -523,12 +542,12 @@ if __name__=="__main__":
         #img=nib.Nifti1Image(fused,moving.affine)
         #nib.save(img,str(i)+".nii.gz")
         '''
-        data_file=output_dir+"moving_"+str(i)+".h5"
-        hf = h5py.File(data_file,"w")
-        hf.create_dataset('moving', data=mov_patches)
-        hf.close()
+        #data_file=output_dir+"moving_"+str(i)+".h5"
+        #hf = h5py.File(data_file,"w")
+        #hf.create_dataset('moving', data=mov_patches)
+        #hf.close()
 
-        print("Created Moving Patches : "+data_file+" Number of patches :"+str(len(mov_patches))+"\n")
+        #print("Created Moving Patches : "+data_file+" Number of patches :"+str(len(mov_patches))+"\n")
         
 print ("Done!!!!")
 

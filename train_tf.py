@@ -88,7 +88,7 @@ def train(config_file):
         if config.similarity_loss == 'mi' or config.similarity_loss == 'MI':
             similarity = MI(fake_tgt, tgt, bins) + MI(fake_src, src, bins)
         if config.cyc_loss == 'on':
-            Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt)
+            Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt, config.ssim_loss)
      
         Dis_optimizer = tf.train.GradientDescentOptimizer(0.00002).minimize(Dis_loss)
 
@@ -115,16 +115,17 @@ def train(config_file):
     # total_pairs = len(train_patch_pairs)*(len(train_patch_pairs)-1)
     x = np.arange(len(training_data))
     total_pairs = list(permutations(x, 2))
-    #random.shuffle(total_pairs)
+    random.shuffle(total_pairs)
 
     for pairs in list(total_pairs):
 
         src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1], config.patch_size)
+
+        if config.flow_loss == 'on':
+            flow = Generate_deformation(training_data[pairs[0]], (576,576,192), 10)
+
         print ("{0} Patches are selected".format(config.Number_of_patch))
         s = 0
-        cc = 0
-        mi = 0
-
         for step in range(iteration):
 
             src_patch = src_im[step]
@@ -134,19 +135,14 @@ def train(config_file):
             #flow = Generate_deformation(diff_patch, vol_size, 10)
             #flow = np.random.rand(batch_size, vol_size[0], vol_size[1], vol_size[2], 6)
             #Training Discriminator Five times to make Network Stable
-            '''
-            for k in range(5):
-                i = np.random.randint(0,624)
-                src_p = src_im[i]
-                tgt_p = tgt_im[i]
-            '''
+
             d_tgt,d_src, _ = sess.run([Dis_tgt_loss, Dis_src_loss,Dis_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch, Dis_input_src: src_patch})
 
             t_loss, g_loss, cyc_loss, _ = sess.run([total_loss, G_loss, Cyc_loss, G_optimizer],
                                                                   feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt:tgt_patch, Dis_input_src:src_patch})
 
             train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt,d_src, 0.0])
-            #print("Start: "+str(start)+" Paris : " + str(pairs) + " Step :" + str(step) + " Patch :" + str(s) + " Loss: " + str(train_loss))
+
             message = "Start:{0} Paris :{1},{2} Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} D_tgt:{7} D_src:{8}\n"\
                 .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss,d_tgt,d_src)
             print (message)
@@ -168,11 +164,9 @@ def train(config_file):
 
             if start % config.Model_saver == 0:
                 if start == 0:
-                    model_saver.save(sess,model_saving_dir+'/'+model_saving_name,global_step=start)
+                    model_saver.save(sess,model_saving_dir+'/'+model_saving_name, global_step=start)
                 else:
                     model_saver.save(sess, model_saving_dir+'/'+model_saving_name, global_step=start)
-                    #cc, mi = ApplyValidation(validation_data, sess, model_saving_dir, config)
-                    #train_loss = [g_loss[0], d_loss, d_s_loss, d_t_loss, cc, mi]
 
             if start % 10== 0:
                 write_summary(start, sess, train_loss, model_dir)

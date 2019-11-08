@@ -11,6 +11,7 @@ import pdb
 from scipy.interpolate import interpn
 import BatchDataReader
 import nibabel as nib
+from partition import set_mid_img,crop_mid_img
 
 loss1=tf.placeholder(shape=(), dtype=tf.double)
 tf.summary.scalar("Total_loss",loss1)
@@ -74,114 +75,110 @@ def ApplyDeform(input_img,flow,vol_size):
 
 def Generate_deformation(img, im_shape, sigma):
 
-    i=0
-    flow = np.zeros((4,im_shape[0],im_shape[1],im_shape[2],6))
+    img = nib.load(img).get_data()
+    img = set_mid_img(img,cSize=(512,540,169),dSize=(576,576,192))
+    flow = np.zeros((im_shape[0],im_shape[1],im_shape[2],6))
+    #patch = np.reshape(patch, im_shape)
+    Points = 150
+    maxdeform = 0.5
+    #mu = np.mean(patch)
+    #pmax = np.max(patch)
+    #above_zero = np.where(img <= (pmax-mu))
+    above_zero = np.where(img <= 0.3)
 
-    for patch in img:
+    RDF = np.zeros([im_shape[0], im_shape[1], im_shape[2], 6], dtype=np.float64)
+    RDFx = np.zeros(im_shape, dtype=np.float64)
+    RDFy = np.zeros(im_shape, dtype=np.float64)
+    RDFz = np.zeros(im_shape, dtype=np.float64)
+    RDFxf = np.zeros(im_shape, dtype=np.float64)
+    RDFyf = np.zeros(im_shape, dtype=np.float64)
+    RDFzf = np.zeros(im_shape, dtype=np.float64)
 
-        #patch = np.reshape(patch, im_shape)
-        Points = 20
-        maxdeform = 0.5
-        mu = np.mean(patch)
-        pmax = np.max(patch)
-        above_zero = np.where(patch <= (pmax-mu))
+    iRDFx = np.zeros(im_shape, dtype=np.float64)
+    iRDFy = np.zeros(im_shape, dtype=np.float64)
+    iRDFz = np.zeros(im_shape, dtype=np.float64)
+    iRDFxf = np.zeros(im_shape, dtype=np.float64)
+    iRDFyf = np.zeros(im_shape, dtype=np.float64)
+    iRDFzf = np.zeros(im_shape, dtype=np.float64)
 
-        RDF = np.zeros([im_shape[0], im_shape[1], im_shape[2], 6], dtype=np.float64)
-        RDFx = np.zeros(im_shape, dtype=np.float64)
-        RDFy = np.zeros(im_shape, dtype=np.float64)
-        RDFz = np.zeros(im_shape, dtype=np.float64)
-        RDFxf = np.zeros(im_shape, dtype=np.float64)
-        RDFyf = np.zeros(im_shape, dtype=np.float64)
-        RDFzf = np.zeros(im_shape, dtype=np.float64)
-        
-        iRDFx = np.zeros(im_shape, dtype=np.float64)
-        iRDFy = np.zeros(im_shape, dtype=np.float64)
-        iRDFz = np.zeros(im_shape, dtype=np.float64)
-        iRDFxf = np.zeros(im_shape, dtype=np.float64)
-        iRDFyf = np.zeros(im_shape, dtype=np.float64)
-        iRDFzf = np.zeros(im_shape, dtype=np.float64)
+    k=0
 
-        k=0
+    while (k < Points):
+        voxel_idx = np.long(np.random.randint(0, len(above_zero[0]) - 1, 1, dtype=np.int64))
+        x = above_zero[0][voxel_idx]
+        y = above_zero[1][voxel_idx]
+        z = above_zero[2][voxel_idx]
 
-        while (k < Points):
-            voxel_idx = np.long(np.random.randint(0, len(above_zero[0]) - 1, 1, dtype=np.int64))
-            x = above_zero[0][voxel_idx]
-            y = above_zero[1][voxel_idx]
-            z = above_zero[2][voxel_idx]
+        Dx = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*x
+        Dy = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*y
+        Dz = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*z
 
-            Dx = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*x
-            Dy = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*y
-            Dz = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*z
+        RDFx[x, y, z] = Dx
+        RDFy[x, y, z] = Dy
+        RDFz[x, y, z] = Dz
 
-            RDFx[x, y, z] = Dx
-            RDFy[x, y, z] = Dy
-            RDFz[x, y, z] = Dz
-            
-            Dx = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*x
-            Dy = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*y
-            Dz = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*z
+        Dx = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*x
+        Dy = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*y
+        Dz = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*z
 
-            iRDFx[x, y, z] = Dx
-            iRDFy[x, y, z] = Dy
-            iRDFz[x, y, z] = Dz
+        iRDFx[x, y, z] = Dx
+        iRDFy[x, y, z] = Dy
+        iRDFz[x, y, z] = Dz
 
-            # print "Point:"+str(k)
-            k += 1
+        # print "Point:"+str(k)
+        k += 1
 
-            # del BorderMask
+        # del BorderMask
 
-        RDFxf = gaussian_filter(RDFx, sigma=sigma)
-        RDFyf = gaussian_filter(RDFy, sigma=sigma)
-        RDFzf = gaussian_filter(RDFz, sigma=sigma)
-        
-        iRDFxf = gaussian_filter(RDFx, sigma=-sigma)
-        iRDFyf = gaussian_filter(RDFy, sigma=-sigma)
-        iRDFzf = gaussian_filter(RDFz, sigma=-sigma)
-        ####################################### Normalization #############################################
-        IXp = np.where(RDFxf > 0)
-        IXn = np.where(RDFxf < 0)
-        IYp = np.where(RDFyf > 0)
-        IYn = np.where(RDFyf < 0)
-        IZp = np.where(RDFzf > 0)
-        IZn = np.where(RDFzf < 0)
-        
-        #### Normalizing x-direction ###
-        if (len(IXp[0]) > 0):
-            RDFxf[IXp] = ((np.max(RDFx) - 0) / (np.max(RDFxf[IXp]) - np.min(RDFxf[IXp])) * (
-                        RDFxf[IXp] - np.min(RDFxf[IXp])) + 0)
+    RDFxf = gaussian_filter(RDFx, sigma=sigma)
+    RDFyf = gaussian_filter(RDFy, sigma=sigma)
+    RDFzf = gaussian_filter(RDFz, sigma=sigma)
 
-        if (len(IXn[0]) > 0):
-            RDFxf[IXn] = ((0 - np.min(RDFxf[IXn])) / (0 - np.min(RDFxf[IXn])) * (RDFxf[IXn] - np.min(RDFxf[IXn])) + np.min(
-                RDFxf[IXn]))
+    iRDFxf = gaussian_filter(RDFx, sigma=-sigma)
+    iRDFyf = gaussian_filter(RDFy, sigma=-sigma)
+    iRDFzf = gaussian_filter(RDFz, sigma=-sigma)
+    ####################################### Normalization #############################################
+    IXp = np.where(RDFxf > 0)
+    IXn = np.where(RDFxf < 0)
+    IYp = np.where(RDFyf > 0)
+    IYn = np.where(RDFyf < 0)
+    IZp = np.where(RDFzf > 0)
+    IZn = np.where(RDFzf < 0)
 
-        #### Normalizing y-direction ####
-        if (len(IYp[0]) > 0):
-            RDFyf[IYp] = ((np.max(RDFy) - 0) / (np.max(RDFyf[IYp]) - np.min(RDFyf[IYp])) * (
-                        RDFyf[IYp] - np.min(RDFyf[IYp])) + 0)
-        if (len(IYn[0]) > 0):
-            RDFyf[IYn] = ((0 - np.min(RDFyf[IYn])) / (0 - np.min(RDFyf[IYn])) * (RDFyf[IYn] - np.min(RDFyf[IYn])) + np.min(
-                RDFyf[IYn]))
+    #### Normalizing x-direction ###
+    if (len(IXp[0]) > 0):
+        RDFxf[IXp] = ((np.max(RDFx) - 0) / (np.max(RDFxf[IXp]) - np.min(RDFxf[IXp])) * (
+                    RDFxf[IXp] - np.min(RDFxf[IXp])) + 0)
 
-        #######Normalizing z-direction ####
+    if (len(IXn[0]) > 0):
+        RDFxf[IXn] = ((0 - np.min(RDFxf[IXn])) / (0 - np.min(RDFxf[IXn])) * (RDFxf[IXn] - np.min(RDFxf[IXn])) + np.min(
+            RDFxf[IXn]))
 
-        if (len(IZp[0]) > 0):
-            RDFzf[IZp] = ((np.max(RDFz) - 0) / (np.max(RDFzf[IZp]) - np.min(RDFzf[IZp])) * (
-                        RDFzf[IZp] - np.min(RDFzf[IZp])) + 0)
-        if (len(IZn[0]) > 0):
-            RDFzf[IZn] = ((0 - np.min(RDFzf[IZn])) / (0 - np.min(RDFzf[IZn])) * (RDFzf[IZn] - np.min(RDFzf[IZn])) + np.min(
-                RDFzf[IZn]))
-        
-        RDF[:, :, :, 0] = RDFxf
-        RDF[:, :, :, 1] = RDFyf
-        RDF[:, :, :, 2] = RDFzf
-        RDF[:, :, :, 3] = iRDFxf
-        RDF[:, :, :, 4] = iRDFyf
-        RDF[:, :, :, 5] = iRDFzf
+    #### Normalizing y-direction ####
+    if (len(IYp[0]) > 0):
+        RDFyf[IYp] = ((np.max(RDFy) - 0) / (np.max(RDFyf[IYp]) - np.min(RDFyf[IYp])) * (
+                    RDFyf[IYp] - np.min(RDFyf[IYp])) + 0)
+    if (len(IYn[0]) > 0):
+        RDFyf[IYn] = ((0 - np.min(RDFyf[IYn])) / (0 - np.min(RDFyf[IYn])) * (RDFyf[IYn] - np.min(RDFyf[IYn])) + np.min(
+            RDFyf[IYn]))
 
-        flow[i,:,:,:,:] = RDF#ApplyDeform(patch,RDF,im_shape)
-        #ni = nib.Nifti1Image(RDF[:,:,:,0], -np.eye(4,4))
-        #nib.save(ni,"flow{0}.nii.gz".format(i))
-        i+=1
+    #######Normalizing z-direction ####
+
+    if (len(IZp[0]) > 0):
+        RDFzf[IZp] = ((np.max(RDFz) - 0) / (np.max(RDFzf[IZp]) - np.min(RDFzf[IZp])) * (
+                    RDFzf[IZp] - np.min(RDFzf[IZp])) + 0)
+    if (len(IZn[0]) > 0):
+        RDFzf[IZn] = ((0 - np.min(RDFzf[IZn])) / (0 - np.min(RDFzf[IZn])) * (RDFzf[IZn] - np.min(RDFzf[IZn])) + np.min(
+            RDFzf[IZn]))
+
+    RDF[:, :, :, 0] = RDFxf
+    RDF[:, :, :, 1] = RDFyf
+    RDF[:, :, :, 2] = RDFzf
+    RDF[:, :, :, 3] = iRDFxf
+    RDF[:, :, :, 4] = iRDFyf
+    RDF[:, :, :, 5] = iRDFzf
+
+    flow = RDF#ApplyDeform(patch,RDF,im_shape)
 
     return flow
 

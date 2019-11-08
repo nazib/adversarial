@@ -11,18 +11,45 @@ class BatchDataset:
     batch_offset = 0
     epochs_completed = 0
 
-    def __init__(self, data_list, batch_size, number_of_patches=2500, mean_crt=0.2):   ### 0.1 for 10% and 0.2 for 25%
+    def __init__(self, data_list, batch_size, number_of_patches=2500, lower=0.05, upper=0.2):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
         self.image_files = data_list
         self.patch_num = number_of_patches
-        self.mean_condition = mean_crt
+        self.mean_lower = lower
+        self.mean_upper = upper
         self.Batch_size = batch_size
+        self.min_prob, self.max_prob, self.Z,self.K = self.create_pdf()
+
+    def create_pdf(self):
+        k=11.5
+        step = 0.5/self.patch_num
+        mu = np.arange(0, 0.5, step)
+        prob = np.ones(len(mu))
+        prob[np.where(mu < self.mean_lower)] = 0
+        prob[np.where(mu > self.mean_upper)] = 10.0 / np.exp(k * mu[np.where(mu > self.mean_upper)])
+        Z = np.sum(prob)
+        prob = prob/Z
+        min_prob = np.mean(prob) - 0.0001
+        max_prob = np.max(prob)
+        return min_prob, max_prob, Z, k
+
+
+    def check_probabiliy(self, patch):
+        mu = np.mean(patch)
+        if (mu >= self.mean_lower) and (mu <= self.mean_upper):
+            prob = 1.0
+            prob = prob/self.Z
+        elif mu > self.mean_upper:
+            prob = 10.0/np.exp(self.K*mu)
+            prob = prob/self.Z
+        else:
+            prob = 0.0
+
+        return prob
 
     def load_image(self, filename):
-       
         f = nib.load(filename)
         image = f.get_data()
-        
         return image
 
     def load_atlas(self, filename):
@@ -95,19 +122,27 @@ class BatchDataset:
         
         src_patches = []
         tgt_patches = []
-
         #src_patch_ed =[]
         #tgt_patch_ed =[]
-
         all_locations =[]
-
         while True:
             src_patch, tgt_patch = self.random_crop(src,tgt,patch_size)
-
+            src_prob = self.check_probabiliy(src_patch)
+            tgt_prob = self.check_probabiliy(tgt_patch)
+            '''
             if (np.mean(src_patch)>=self.mean_condition) and (np.mean(tgt_patch)>=self.mean_condition):
                 src_patches.append(src_patch)
                 tgt_patches.append(tgt_patch)
                 p_count+=1
+            '''
+
+            if (src_prob >= self.min_prob and src_prob<= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
+                src_patches.append(src_patch)
+                tgt_patches.append(tgt_patch)
+                #print("src mu:{0} src p:{1}  tgt mu:{2} tgt p:{3}\n".format(np.mean(src_patch), src_prob,
+                #                                                           np.mean(tgt_patch), tgt_prob))
+                p_count += 1
+
             if p_count >=self.patch_num:
                 break
         

@@ -40,6 +40,8 @@ class Configuration:
         self.GPU = config.get('Network Settings','gpuid')
         self.similarity_loss = config.get('Network Settings','similarity_loss')
         self.cyc_loss = config.get('Network Settings','cyc_loss')
+        self.ssim_loss = config.get('Network Settings', 'ssim_loss')
+        self.flow_loss = config.get('Network Settings', 'flow_loss')
 
     def PrintConfiguration(self):
         print(" The network is Running with Following parameters")
@@ -62,7 +64,6 @@ class Configuration:
         config.read(path)
 
         ############## Reading Test Configurations ############
-
         self.TestResolution = config.get('data info','resolution')
         self.TestPatchSize = np.asarray(config.get('data info','patch_size')[1:-1].split(','),dtype=int)
         #int(config.get('data info','patch_size'))

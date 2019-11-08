@@ -40,11 +40,15 @@ def cc3D(I,J,win=[9, 9, 9]):
 
     return -1.0*cc
 
-def Cyclic_loss(src_cyc,tgt_cyc, src,tgt):
-    #src_cyclic = tf.reduce_mean(tf.abs(src-src_cyc))
-    #tgt_cyclic = tf.reduce_mean(tf.abs(tgt-tgt_cyc))
-    src_cyclic = (1 - tf.reduce_mean(tf.image.ssim(src_cyc, src, max_val=1.0)[0])) + 0.00005 * tf.reduce_sum(tf.squared_difference(src_cyc, src))
-    tgt_cyclic = (1 - tf.reduce_mean(tf.image.ssim(tgt_cyc, tgt, max_val=1.0)[0])) + 0.00005 * tf.reduce_sum(tf.squared_difference(tgt_cyc, tgt))
+def Cyclic_loss(src_cyc,tgt_cyc, src,tgt, ssim_status):
+
+    if ssim_status == 'off':
+        src_cyclic = tf.reduce_mean(tf.abs(src-src_cyc))
+        tgt_cyclic = tf.reduce_mean(tf.abs(tgt-tgt_cyc))
+    else:
+        src_cyclic = (1 - tf.reduce_mean(tf.image.ssim(src_cyc, src, max_val=1.0)[0])) + 0.00005 * tf.reduce_sum(tf.squared_difference(src_cyc, src))
+        tgt_cyclic = (1 - tf.reduce_mean(tf.image.ssim(tgt_cyc, tgt, max_val=1.0)[0])) + 0.00005 * tf.reduce_sum(tf.squared_difference(tgt_cyc, tgt))
+
     return src_cyclic+tgt_cyclic
 
 def Cyclic_lossl2(src_cyc,tgt_cyc, src,tgt):

@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -N 25%_DenseGAN_mi
+#PBS -N 25%_DGAN_cc_cyc_ssim_dis_2500_2x2
 #PBS -l walltime=100:00:00
 #PBS -l mem=64Gb
 #PBS -l ncpus=1

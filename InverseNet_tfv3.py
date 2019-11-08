@@ -25,61 +25,74 @@ class InverseNetDense_tf:
 
     def Encoder(self):
         x  = tf.concat([self.src,self.tgt],4)
-        self.E_l1 = self.Downsample(x,32,3,2)
-        self.E_l2 = self.Downsample(self.E_l1, 32, 3, 2)
-        self.E_l3 = self.Downsample(self.E_l2, 32, 3, 2)
-        self.E_l4 = self.Downsample(self.E_l3, 32, 3, 2)
+        self.E_l1 = self.Downsample(x,32,2,2)
+        self.E_l2 = self.Downsample(self.E_l1, 32, 2, 2)
+        self.E_l3 = self.Downsample(self.E_l2, 32, 2, 2)
+        self.E_l4 = self.Downsample(self.E_l3, 32, 2, 2)
 
         return self.E_l4
 
     def FowwardFlow(self):
 
         x = self.Conv(self.E_l4, 32, 3, 1)
-        x = self.Upsample(x, 32, 3, 2)
+        x = x + self.E_l4
+        x = tf.concat([x,self.E_l4],4)
+
+        x = self.Upsample(x, 32, 2, 2)
+        x = self.Conv(x,32,3,1)
         E_l1_3 = self.Downsample(self.E_l1, 32, 3, 4)
         E_l2_3 = self.Downsample(self.E_l2, 32, 3, 2)
         x = x + self.E_l3 + E_l1_3 + E_l2_3
         x = tf.concat([x, self.E_l3,E_l1_3,E_l2_3], 4)
 
-        x = self.Upsample(x, 32, 3, 2)
-        E_l1_2 = self.Downsample(self.E_l1, 32, 3, 2)
-        E_l3_2 = self.Upsample(self.E_l3, 32, 3, 2)
+        x = self.Upsample(x, 32, 2, 2)
+        x = self.Conv(x, 32, 3, 1)
+        E_l1_2 = self.Downsample(self.E_l1, 32, 2, 2)
+        E_l3_2 = self.Upsample(self.E_l3, 32, 2, 2)
         x = x + self.E_l2 + E_l1_2 + E_l3_2
         x = tf.concat([x, self.E_l2,E_l1_2,E_l3_2], 4)
 
-        x = self.Upsample(x, 32, 3, 2)
-        E_l2_1 = self.Upsample(self.E_l2, 32, 3, 2)
-        E_l3_1 = self.Upsample(self.E_l3, 32, 3, 4)
+        x = self.Upsample(x, 32, 2, 2)
+        x = self.Conv(x, 32, 3, 1)
+        E_l2_1 = self.Upsample(self.E_l2, 32, 2, 2)
+        E_l3_1 = self.Upsample(self.E_l3, 32, 2, 4)
         x = x + self.E_l1 + E_l2_1 + E_l3_1
         x = tf.concat([x, self.E_l1, E_l2_1, E_l3_1], 4)
 
-        x = self.Upsample(x, 32, 3, 2)
+        x = self.Upsample(x, 32, 2, 2)
         x = self.Conv(x,8,3,1)
         #flow = self.Conv(x, 3, 3, 1)
         flow = tf.layers.conv3d(x, 3, 3, 1,padding="same", kernel_initializer = tf.truncated_normal_initializer(mean=0.0 ,stddev=1e-5))
         return flow
 
     def InverseFlow(self):
+
         x = self.Conv(self.E_l4, 32, 3, 1)
-        x = self.Upsample(x, 32, 3, 2)
-        E_l1_3 = self.Downsample(self.E_l1, 32, 3, 4)
-        E_l2_3 = self.Downsample(self.E_l2, 32, 3, 2)
+        x = x - self.E_l4
+        x = tf.concat([x, self.E_l4], 4)
+
+        x = self.Upsample(x, 32, 2, 2)
+        x = self.Conv(x, 32, 3, 1)
+        E_l1_3 = self.Downsample(self.E_l1, 32, 2, 4)
+        E_l2_3 = self.Downsample(self.E_l2, 32, 2, 2)
         x = x - self.E_l3 - E_l1_3 - E_l2_3
         x = tf.concat([x, self.E_l3, E_l1_3, E_l2_3], 4)
 
-        x = self.Upsample(x, 32, 3, 2)
-        E_l1_2 = self.Downsample(self.E_l1, 32, 3, 2)
-        E_l3_2 = self.Upsample(self.E_l3, 32, 3, 2)
+        x = self.Upsample(x, 32, 2, 2)
+        x = self.Conv(x, 32, 3, 1)
+        E_l1_2 = self.Downsample(self.E_l1, 32, 2, 2)
+        E_l3_2 = self.Upsample(self.E_l3, 32, 2, 2)
         x = x - self.E_l2 - E_l1_2 - E_l3_2
         x = tf.concat([x, self.E_l2, E_l1_2, E_l3_2], 4)
 
-        x = self.Upsample(x, 32, 3, 2)
-        E_l2_1 = self.Upsample(self.E_l2, 32, 3, 2)
-        E_l3_1 = self.Upsample(self.E_l3, 32, 3, 4)
+        x = self.Upsample(x, 32, 2, 2)
+        x = self.Conv(x, 32, 3, 1)
+        E_l2_1 = self.Upsample(self.E_l2, 32, 2, 2)
+        E_l3_1 = self.Upsample(self.E_l3, 32, 2, 4)
         x = x - self.E_l1 - E_l2_1 - E_l3_1
         x = tf.concat([x, self.E_l1, E_l2_1, E_l3_1], 4)
 
-        x = self.Upsample(x, 32, 3, 2)
+        x = self.Upsample(x, 32, 2, 2)
         x = self.Conv(x, 8, 3, 1)
         # flow = self.Conv(x, 3, 3, 1)
         flow = tf.layers.conv3d(x, 3, 3, 1, padding="same",
