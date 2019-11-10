@@ -73,11 +73,30 @@ def ApplyDeform(input_img,flow,vol_size):
 
     return warp_cube
 
-def Generate_deformation(img, im_shape, sigma):
+def normalize_flow(flow,flow_m):
+    
+    IXp = np.where(flow > 0)
+    IXn = np.where(flow < 0)
 
-    img = nib.load(img).get_data()
-    img = set_mid_img(img,cSize=(512,540,169),dSize=(576,576,192))
-    flow = np.zeros((im_shape[0],im_shape[1],im_shape[2],6))
+    if (len(IXp[0]) > 0):
+        flow[IXp] = ((np.max(flow_m) - 0) / (np.max(flow[IXp]) - np.min(flow[IXp])) * (
+                    flow[IXp] - np.min(flow[IXp])) + 0)
+
+    if (len(IXn[0]) > 0):
+        flow[IXn] = ((0 - np.min(flow[IXn])) / (0 - np.min(flow[IXn])) * (flow[IXn] - np.min(flow[IXn])) + np.min(
+            flow[IXn]))
+    return flow
+    
+
+def Generate_deformation(img, sigma):
+
+    #img = nib.load(img).get_data()
+    #img = set_mid_img(img,cSize=(512,540,169),dSize=(576,576,192))
+    m,n,c = img.shape
+    if m!=n:
+       img = set_mid_img(img, cSize=(m-128,n,c), dSize=(m,m,c))
+     
+    flow = np.zeros((img.shape[0],img.shape[1],img.shape[2],6))
     #patch = np.reshape(patch, im_shape)
     Points = 150
     maxdeform = 0.5
@@ -86,7 +105,7 @@ def Generate_deformation(img, im_shape, sigma):
     #above_zero = np.where(img <= (pmax-mu))
     above_zero = np.where(img <= 0.3)
 
-    RDF = np.zeros([im_shape[0], im_shape[1], im_shape[2], 6], dtype=np.float64)
+    RDF = np.zeros([img.shape[0], img.shape[1], img.shape[2], 6], dtype=np.float64)
     RDFx = np.zeros(im_shape, dtype=np.float64)
     RDFy = np.zeros(im_shape, dtype=np.float64)
     RDFz = np.zeros(im_shape, dtype=np.float64)
@@ -133,44 +152,17 @@ def Generate_deformation(img, im_shape, sigma):
     RDFxf = gaussian_filter(RDFx, sigma=sigma)
     RDFyf = gaussian_filter(RDFy, sigma=sigma)
     RDFzf = gaussian_filter(RDFz, sigma=sigma)
-
-    iRDFxf = gaussian_filter(RDFx, sigma=-sigma)
-    iRDFyf = gaussian_filter(RDFy, sigma=-sigma)
-    iRDFzf = gaussian_filter(RDFz, sigma=-sigma)
+    
+    RDFxf = normalize_flow(RDFxf, RDFx)
+    RDFyf = normalize_flow(RDFyf, RDFy)
+    RDFzf = normalize_flow(RDFzf, RDFz)
+    
+    #### Inverse Flow #####
+    iRDFxf = -RDFxf#gaussian_filter(RDFx, sigma=-sigma)
+    iRDFyf = -RDFyf#gaussian_filter(RDFy, sigma=-sigma)
+    iRDFzf = -RDFzf#gaussian_filter(RDFz, sigma=-sigma)
     ####################################### Normalization #############################################
-    IXp = np.where(RDFxf > 0)
-    IXn = np.where(RDFxf < 0)
-    IYp = np.where(RDFyf > 0)
-    IYn = np.where(RDFyf < 0)
-    IZp = np.where(RDFzf > 0)
-    IZn = np.where(RDFzf < 0)
-
-    #### Normalizing x-direction ###
-    if (len(IXp[0]) > 0):
-        RDFxf[IXp] = ((np.max(RDFx) - 0) / (np.max(RDFxf[IXp]) - np.min(RDFxf[IXp])) * (
-                    RDFxf[IXp] - np.min(RDFxf[IXp])) + 0)
-
-    if (len(IXn[0]) > 0):
-        RDFxf[IXn] = ((0 - np.min(RDFxf[IXn])) / (0 - np.min(RDFxf[IXn])) * (RDFxf[IXn] - np.min(RDFxf[IXn])) + np.min(
-            RDFxf[IXn]))
-
-    #### Normalizing y-direction ####
-    if (len(IYp[0]) > 0):
-        RDFyf[IYp] = ((np.max(RDFy) - 0) / (np.max(RDFyf[IYp]) - np.min(RDFyf[IYp])) * (
-                    RDFyf[IYp] - np.min(RDFyf[IYp])) + 0)
-    if (len(IYn[0]) > 0):
-        RDFyf[IYn] = ((0 - np.min(RDFyf[IYn])) / (0 - np.min(RDFyf[IYn])) * (RDFyf[IYn] - np.min(RDFyf[IYn])) + np.min(
-            RDFyf[IYn]))
-
-    #######Normalizing z-direction ####
-
-    if (len(IZp[0]) > 0):
-        RDFzf[IZp] = ((np.max(RDFz) - 0) / (np.max(RDFzf[IZp]) - np.min(RDFzf[IZp])) * (
-                    RDFzf[IZp] - np.min(RDFzf[IZp])) + 0)
-    if (len(IZn[0]) > 0):
-        RDFzf[IZn] = ((0 - np.min(RDFzf[IZn])) / (0 - np.min(RDFzf[IZn])) * (RDFzf[IZn] - np.min(RDFzf[IZn])) + np.min(
-            RDFzf[IZn]))
-
+   
     RDF[:, :, :, 0] = RDFxf
     RDF[:, :, :, 1] = RDFyf
     RDF[:, :, :, 2] = RDFzf

@@ -4,6 +4,7 @@ import h5py
 import numpy as np
 import SimpleITK as sitk
 from measurment import *
+import utility
 
 class BatchDataset:
     images = []
@@ -11,13 +12,15 @@ class BatchDataset:
     batch_offset = 0
     epochs_completed = 0
 
-    def __init__(self, data_list, batch_size, number_of_patches=2500, lower=0.05, upper=0.2):   ### 0.1 for 10% and 0.2 for 25%
+    def __init__(self, data_list, batch_size, config, lower=0.05, upper=0.2):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
         self.image_files = data_list
-        self.patch_num = number_of_patches
+        self.patch_num = config.number_of_patches
         self.mean_lower = lower
         self.mean_upper = upper
         self.Batch_size = batch_size
+        self.flow_loss = config.flow_loss
+        self.patch_size = config.patch_size
         self.min_prob, self.max_prob, self.Z,self.K = self.create_pdf()
 
     def create_pdf(self):
@@ -58,6 +61,26 @@ class BatchDataset:
         atlas = np.squeeze(atlas)
         # label = np.transpose(label, [2, 1, 0])
         return atlas
+    
+    def list2array(self,list_data):
+        array_data = np.concatenate([pat[np.newaxis, ...] for pat in list_data], axis=0)
+        return array_data
+
+    def create_batch(self,patch_data)
+        batches = len(patch_data)//self.Batch_size
+        data_batches = []
+        
+        s=0
+
+        for b in range(batches):
+            batch = patch_data[s:s+self.Batch_size,:,:,:]
+            batch = np.reshape(batch, (self.Batch_size, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+            data_batches.insert(b, batch)
+            s += self.Batch_size
+        return data_batches
+
+        
+        
 
     def random_crop(self, images, atlas,size):
         crop_image = []
@@ -94,61 +117,85 @@ class BatchDataset:
         crop_atlas = np.array(crop_atlas)
         #crop_atlas = np.reshape(crop_atlas, (self.Batch_size, size[0], size[1], size[2], 1))
         #location = np.array([random_center_x,random_center_y,random_center_z])
-
-        return crop_image, crop_atlas #location
+        if self.flow_loss == 'on':
+           fx_patch = self.flow_fx[s_x:e_x,s_y:e_y,s_z:e_z]
+           fy_patch = self.flow_fy[s_x:e_x,s_y:e_y,s_z:e_z]
+           fz_patch = self.flow_fz[s_x:e_x,s_y:e_y,s_z:e_z]
+           ix_patch = self.flow_ix[s_x:e_x,s_y:e_y,s_z:e_z]
+           iy_patch = self.flow_iy[s_x:e_x,s_y:e_y,s_z:e_z]
+           iz_patch = self.flow_iz[s_x:e_x,s_y:e_y,s_z:e_z]
+           return crop_image, crop_atlas, [fx_patch,fy_patch,fz_patch,ix_patch,iy_patch,iz_patch] 
+        else:    
+            return crop_image, crop_atlas #location
     
-    def create_pairs(self, selector_src,selector_tgt,patch_size):
+    def create_pairs(self, selector_src, selector_tgt, patch_size):
 
         src = self.load_image(self.image_files[selector_src])
         tgt = self.load_image(self.image_files[selector_tgt])
-
-        '''
-        ############  Canny Edge detection ###########
-        src_sitk = sitk.GetImageFromArray(src)
-        tgt_sitk = sitk.GetImageFromArray(tgt)
         
-        src_sitk = sitk.Cast(src_sitk, sitk.sitkFloat32)
-        tgt_sitk = sitk.Cast(tgt_sitk, sitk.sitkFloat32)
+        if self.flow_loss == 'on':
+           flow = utility.Generate_deformation(src, 60)
+           self.flow_fx = flow[:,:,:,0]
+           self.flow_fy = flow[:,:,:,1]
+           self.flow_fz = flow[:,:,:,2]
+           self.flow_ix = flow[:,:,:,3]
+           self.flow_iy = flow[:,:,:,4]
+           self.flow_iz = flow[:,:,:,5]
 
-        src_edges = sitk.CannyEdgeDetection(src_sitk, lowerThreshold=0.02, 
-                                upperThreshold=0.05)
-        tgt_edges = sitk.CannyEdgeDetection(tgt_sitk, lowerThreshold=0.02, 
-                                upperThreshold=0.05)
-        
-        src_edges = sitk.GetArrayFromImage(src_edges)
-        tgt_edges = sitk.GetArrayFromImage(tgt_edges)
-        '''
         p_count =0
         
         src_patches = []
         tgt_patches = []
         #src_patch_ed =[]
         #tgt_patch_ed =[]
-        all_locations =[]
+        if self.flow_loss == 'on':
+           fx_patches = []
+           fy_patches = []
+           fz_patches = []
+           ix_patches = []
+           iy_patches = []
+           iz_patches = []
+
         while True:
-            src_patch, tgt_patch = self.random_crop(src,tgt,patch_size)
+            if self.flow_loss == 'on':
+               src_patch, tgt_patch, flow_patches = self.random_crop(src,tgt,patch_size)
+            else:
+               src_patch, tgt_patch = self.random_crop(src,tgt,patch_size)
+
             src_prob = self.check_probabiliy(src_patch)
             tgt_prob = self.check_probabiliy(tgt_patch)
-            '''
-            if (np.mean(src_patch)>=self.mean_condition) and (np.mean(tgt_patch)>=self.mean_condition):
-                src_patches.append(src_patch)
-                tgt_patches.append(tgt_patch)
-                p_count+=1
-            '''
 
             if (src_prob >= self.min_prob and src_prob<= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
                 src_patches.append(src_patch)
                 tgt_patches.append(tgt_patch)
+                
                 #print("src mu:{0} src p:{1}  tgt mu:{2} tgt p:{3}\n".format(np.mean(src_patch), src_prob,
                 #                                                           np.mean(tgt_patch), tgt_prob))
-                p_count += 1
+                if self.flow_loss == 'on':
+                   fx_patches.append(flow_patches[0])
+                   fy_patches.append(flow_patches[1])
+                   fz_patches.append(flow_patches[2])
+                   ix_patches.append(flow_patches[3])
+                   iy_patches.append(flow_patches[4])
+                   iz_patches.append(flow_patches[5])
+                
+                 p_count += 1
 
             if p_count >=self.patch_num:
                 break
         
-        src_patches = np.concatenate([pat[np.newaxis, ...] for pat in src_patches], axis=0)
-        tgt_patches = np.concatenate([pat[np.newaxis, ...] for pat in tgt_patches], axis=0)
+        src_patches = self.list2array(src_patches)
+        tgt_patches = self.list2array(tgt_patches)
 
+        if self.flow_loss == 'on':
+           fx_patches = self.list2array(fx_patches)
+           fy_patches = self.list2array(fy_patches)  
+           fz_patches = self.list2array(fz_patches)
+           ix_patches = self.list2array(ix_patches)
+           iy_patches = self.list2array(iy_patches)  
+           iz_patches = self.list2array(iz_patches)
+
+        
         batches = len(src_patches)//self.Batch_size
         src_batches = []
         tgt_batches = []
