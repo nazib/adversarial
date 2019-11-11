@@ -15,7 +15,7 @@ class BatchDataset:
     def __init__(self, data_list, batch_size, config, lower=0.05, upper=0.2):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
         self.image_files = data_list
-        self.patch_num = config.number_of_patches
+        self.patch_num = config.Number_of_patches
         self.mean_lower = lower
         self.mean_upper = upper
         self.Batch_size = batch_size
@@ -66,7 +66,7 @@ class BatchDataset:
         array_data = np.concatenate([pat[np.newaxis, ...] for pat in list_data], axis=0)
         return array_data
 
-    def create_batch(self,patch_data)
+    def create_batch(self,patch_data):
         batches = len(patch_data)//self.Batch_size
         data_batches = []
         
@@ -128,7 +128,7 @@ class BatchDataset:
         else:    
             return crop_image, crop_atlas #location
     
-    def create_pairs(self, selector_src, selector_tgt, patch_size):
+    def create_pairs(self, selector_src, selector_tgt):
 
         src = self.load_image(self.image_files[selector_src])
         tgt = self.load_image(self.image_files[selector_tgt])
@@ -158,9 +158,9 @@ class BatchDataset:
 
         while True:
             if self.flow_loss == 'on':
-               src_patch, tgt_patch, flow_patches = self.random_crop(src,tgt,patch_size)
+               src_patch, tgt_patch, flow_patches = self.random_crop(src,tgt,self.patch_size)
             else:
-               src_patch, tgt_patch = self.random_crop(src,tgt,patch_size)
+               src_patch, tgt_patch = self.random_crop(src,tgt,self.patch_size)
 
             src_prob = self.check_probabiliy(src_patch)
             tgt_prob = self.check_probabiliy(tgt_patch)
@@ -179,7 +179,7 @@ class BatchDataset:
                    iy_patches.append(flow_patches[4])
                    iz_patches.append(flow_patches[5])
                 
-                 p_count += 1
+                p_count += 1
 
             if p_count >=self.patch_num:
                 break

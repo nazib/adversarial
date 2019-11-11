@@ -106,19 +106,19 @@ def Generate_deformation(img, sigma):
     above_zero = np.where(img <= 0.3)
 
     RDF = np.zeros([img.shape[0], img.shape[1], img.shape[2], 6], dtype=np.float64)
-    RDFx = np.zeros(im_shape, dtype=np.float64)
-    RDFy = np.zeros(im_shape, dtype=np.float64)
-    RDFz = np.zeros(im_shape, dtype=np.float64)
-    RDFxf = np.zeros(im_shape, dtype=np.float64)
-    RDFyf = np.zeros(im_shape, dtype=np.float64)
-    RDFzf = np.zeros(im_shape, dtype=np.float64)
+    RDFx = np.zeros(img.shape, dtype=np.float64)
+    RDFy = np.zeros(img.shape, dtype=np.float64)
+    RDFz = np.zeros(img.shape, dtype=np.float64)
+    RDFxf = np.zeros(img.shape, dtype=np.float64)
+    RDFyf = np.zeros(img.shape, dtype=np.float64)
+    RDFzf = np.zeros(img.shape, dtype=np.float64)
 
-    iRDFx = np.zeros(im_shape, dtype=np.float64)
-    iRDFy = np.zeros(im_shape, dtype=np.float64)
-    iRDFz = np.zeros(im_shape, dtype=np.float64)
-    iRDFxf = np.zeros(im_shape, dtype=np.float64)
-    iRDFyf = np.zeros(im_shape, dtype=np.float64)
-    iRDFzf = np.zeros(im_shape, dtype=np.float64)
+    iRDFx = np.zeros(img.shape, dtype=np.float64)
+    iRDFy = np.zeros(img.shape, dtype=np.float64)
+    iRDFz = np.zeros(img.shape, dtype=np.float64)
+    iRDFxf = np.zeros(img.shape, dtype=np.float64)
+    iRDFyf = np.zeros(img.shape, dtype=np.float64)
+    iRDFzf = np.zeros(img.shape, dtype=np.float64)
 
     k=0
 

@@ -35,7 +35,7 @@ def train(config_file):
     #training_data = training_data[0:len(training_data)-3]
     random.shuffle(training_data)
 
-    train_dataset_reader = BatchDataReader.BatchDataset(training_data,batch_size,config.Number_of_patch)
+    train_dataset_reader = BatchDataReader.BatchDataset(training_data,batch_size,config)
 
     model_dir = config.base_directory + config.Model_name
     if not os.path.isdir(model_dir):
@@ -103,7 +103,7 @@ def train(config_file):
         model_saver = tf.train.Saver(max_to_keep=None)
 
     start = config.iteration_start
-    iteration = int(config.Number_of_patch / batch_size)
+    iteration = int(config.Number_of_patches / batch_size)
 
     if start > 0:
         if start > iteration:
@@ -119,11 +119,9 @@ def train(config_file):
 
     for pairs in list(total_pairs):
 
-        src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1], config.patch_size)
+        src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1])
 
-        if config.flow_loss == 'on':
-            flow = Generate_deformation(training_data[pairs[0]], (576,576,192), 10)
-
+        
         print ("{0} Patches are selected".format(config.Number_of_patch))
         s = 0
         for step in range(iteration):

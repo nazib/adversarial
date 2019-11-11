@@ -29,7 +29,7 @@ class Configuration:
         self.resolution = config.get('image info','resolution')
         self.patch_size = np.asarray(config.get('image info','patch_size')[1:-1].split(','),dtype=int)#int(config.get('image info','patch_size'))
         self.base_directory = config.get('image info','base_dir')
-        self.Number_of_patch = int(config.get('image info', 'Number_of_patches'))
+        self.Number_of_patches = int(config.get('image info', 'Number_of_patches'))
 
         self.Learning_Rate = float(config.get('Network Settings','Learning_Rate'))
         self.Model_name = config.get('Network Settings','Model_name')
