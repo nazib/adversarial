@@ -89,11 +89,15 @@ def train(config_file):
             similarity = MI(fake_tgt, tgt, bins) + MI(fake_src, src, bins)
         if config.cyc_loss == 'on':
             Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt, config.ssim_loss)
-     
+        if config.flow_loss == 'on':
+            flow_loss = flow_dist_loss(diff, Flow) * 0.001
+
+        if config.flow_loss == 'on':
+            total_loss = 0.01 * G_loss + similarity + Cyc_loss + flow_loss
+        else:
+            total_loss = 0.01 * G_loss + similarity + Cyc_loss
+
         Dis_optimizer = tf.train.GradientDescentOptimizer(0.00002).minimize(Dis_loss)
-
-        total_loss = 0.01 * G_loss + similarity + Cyc_loss
-
         G_optimizer = tf.train.AdamOptimizer(0.0001, beta1=0.9, beta2=0.999, epsilon=1e-8).minimize(total_loss)
 
         init = tf.global_variables_initializer()
@@ -119,39 +123,43 @@ def train(config_file):
 
     for pairs in list(total_pairs):
 
-        src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1])
+        if config.flow_loss == 'off':
+            src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1])
+        else:
+            src_im, tgt_im, flow = train_dataset_reader.create_pairs(pairs[0], pairs[1])
+            src_im1, tgt_im1, flow1 = train_dataset_reader.create_pairs(6, 3)
 
-        
-        print ("{0} Patches are selected".format(config.Number_of_patch))
+
+        print ("{0} Patches are selected".format(config.Number_of_patches))
         s = 0
         for step in range(iteration):
 
             src_patch = src_im[step]
             tgt_patch = tgt_im[step]
-            #diff_patch = np.abs(tgt_patch - src_patch)
-            #if start ==0:
-            #flow = Generate_deformation(diff_patch, vol_size, 10)
-            #flow = np.random.rand(batch_size, vol_size[0], vol_size[1], vol_size[2], 6)
-            #Training Discriminator Five times to make Network Stable
 
-            d_tgt,d_src, _ = sess.run([Dis_tgt_loss, Dis_src_loss,Dis_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch, Dis_input_src: src_patch})
+            d_tgt, d_src, _ = sess.run([Dis_tgt_loss, Dis_src_loss, Dis_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch,
+                                                                                                         Dis_input_src: src_patch})
 
-            t_loss, g_loss, cyc_loss, _ = sess.run([total_loss, G_loss, Cyc_loss, G_optimizer],
-                                                                  feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt:tgt_patch, Dis_input_src:src_patch})
+            if config.flow_loss == 'on':
+                flow_label = np.reshape([flow[0][step],flow[1][step],flow[2][step],flow[3][step], flow[4][step], flow[5][step]],
+                                        (batch_size, config.patch_size[0],config.patch_size[1], config.patch_size[2], 6))
+                t_loss, g_loss, cyc_loss, flow_los, _ = sess.run([total_loss, G_loss, Cyc_loss, flow_loss , G_optimizer],
+                feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt:tgt_patch, Dis_input_src:src_patch, diff: flow_label})
 
-            train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt,d_src, 0.0])
+                train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt, d_src, flow_los])
+            else:
+                t_loss, g_loss, cyc_loss, _ = sess.run([total_loss, G_loss, Cyc_loss, G_optimizer],
+                                                                 feed_dict={src: src_patch, tgt: tgt_patch,
+                                                                            Dis_input_tgt: tgt_patch,
+                                                                            Dis_input_src: src_patch})
+                train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt, d_src, 0.0])
+                flow_los = 0.0
 
-            message = "Start:{0} Paris :{1},{2} Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} D_tgt:{7} D_src:{8}\n"\
-                .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss,d_tgt,d_src)
+            message = "Start:{0} Paris :{1},{2} Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} D_tgt:{7} D_src:{8} Flow loss:{9} \n"\
+                .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss,d_tgt,d_src, flow_los)
             print (message)
 
-            if t_loss >= -0.1:
-                file = open("Detect.txt", "a")
-                data = "Target:{0} Source:{1} Patch:{2}  iteration: {3} LossValue:{4}".format(training_data[pairs[0]], training_data[pairs[1]],
-                                                                              step, start, t_loss)
-                file.write(data)
-                file.write("\n")
-                file.close()
+
 
             model_saving_dir = model_dir+"/models"
 
@@ -171,6 +179,9 @@ def train(config_file):
 
             s = s + batch_size
             start = start + 1
+            if start == 623:
+                import pdb
+                pdb.set_trace()
 
 
 def ApplyValidation(validation_data,session, model_dir, config):

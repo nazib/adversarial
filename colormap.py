@@ -92,8 +92,7 @@ def overlay_slices(slice1,slice2,config_obj,file_no):
 
     im1_s = green(slice1)
     im2_s = red(slice2)
-    imsave("ref.png",transpose(im2_s))
-
+    
     alpha = 0.4
     overlay1 = alpha * im2_s + (1 - alpha) * im1_s
 
@@ -151,6 +150,8 @@ def overlay_slices(slice1,slice2,config_obj,file_no):
 
     if config_obj.TestResolution == '25':
         diff = crop_mid_img2D(diff.T)
+        slice1 = crop_mid_img2D(slice1.T)
+        imsave("brain_slice_{0}_{1}_{2}.jpg".format(file_no, config_obj.TestSliceNo, config_obj.TestModelNumber), slice1)
         #diff = diff.T
     else:
         diff = imresize(diff.T.astype(np.float64), (800, 800), interp='bicubic')

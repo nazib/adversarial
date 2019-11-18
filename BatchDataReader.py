@@ -12,7 +12,7 @@ class BatchDataset:
     batch_offset = 0
     epochs_completed = 0
 
-    def __init__(self, data_list, batch_size, config, lower=0.05, upper=0.2):   ### 0.1 for 10% and 0.2 for 25%
+    def __init__(self, data_list, batch_size, config, lower=0.1, upper=0.5):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
         self.image_files = data_list
         self.patch_num = config.Number_of_patches
@@ -24,9 +24,9 @@ class BatchDataset:
         self.min_prob, self.max_prob, self.Z,self.K = self.create_pdf()
 
     def create_pdf(self):
-        k=11.5
-        step = 0.5/self.patch_num
-        mu = np.arange(0, 0.5, step)
+        k = 4.6
+        step = 0.9/self.patch_num
+        mu = np.arange(0, 0.9, step)
         prob = np.ones(len(mu))
         prob[np.where(mu < self.mean_lower)] = 0
         prob[np.where(mu > self.mean_upper)] = 10.0 / np.exp(k * mu[np.where(mu > self.mean_upper)])
@@ -103,20 +103,13 @@ class BatchDataset:
         crop_image = images[s_x:e_x,s_y:e_y,s_z:e_z]
 
         crop_atlas = atlas[s_x:e_x,s_y:e_y,s_z:e_z]
-        '''
-        crop_image_ed = image_edges[random_center_x - size / 2: random_center_x + size / 2,
-                        random_center_y - size / 2: random_center_y + size / 2,
-                        random_center_z - size / 2: random_center_z + size / 2]
-        crop_atlas_ed = atlas_edges[random_center_x - size / 2: random_center_x + size / 2,
-                        random_center_y - size / 2: random_center_y + size / 2,
-                        random_center_z - size / 2: random_center_z + size / 2]
-        '''
+
         crop_image = np.array(crop_image)
-        #crop_image = np.reshape(crop_image, (self.Batch_size, size[0], size[1], size[2], 1))
 
         crop_atlas = np.array(crop_atlas)
-        #crop_atlas = np.reshape(crop_atlas, (self.Batch_size, size[0], size[1], size[2], 1))
-        #location = np.array([random_center_x,random_center_y,random_center_z])
+
+        #location = np.array([random_center_x, random_center_y, random_center_z])
+
         if self.flow_loss == 'on':
            fx_patch = self.flow_fx[s_x:e_x,s_y:e_y,s_z:e_z]
            fy_patch = self.flow_fy[s_x:e_x,s_y:e_y,s_z:e_z]
@@ -126,12 +119,14 @@ class BatchDataset:
            iz_patch = self.flow_iz[s_x:e_x,s_y:e_y,s_z:e_z]
            return crop_image, crop_atlas, [fx_patch,fy_patch,fz_patch,ix_patch,iy_patch,iz_patch] 
         else:    
-            return crop_image, crop_atlas #location
+            return crop_image, crop_atlas
     
     def create_pairs(self, selector_src, selector_tgt):
 
         src = self.load_image(self.image_files[selector_src])
         tgt = self.load_image(self.image_files[selector_tgt])
+
+        locat = np.zeros((2502, 7), dtype=np.float)
         
         if self.flow_loss == 'on':
            flow = utility.Generate_deformation(src, 60)
@@ -160,7 +155,7 @@ class BatchDataset:
             if self.flow_loss == 'on':
                src_patch, tgt_patch, flow_patches = self.random_crop(src,tgt,self.patch_size)
             else:
-               src_patch, tgt_patch = self.random_crop(src,tgt,self.patch_size)
+               src_patch, tgt_patch = self.random_crop(src, tgt, self.patch_size)
 
             src_prob = self.check_probabiliy(src_patch)
             tgt_prob = self.check_probabiliy(tgt_patch)
@@ -168,6 +163,14 @@ class BatchDataset:
             if (src_prob >= self.min_prob and src_prob<= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
                 src_patches.append(src_patch)
                 tgt_patches.append(tgt_patch)
+                #locat[p_count,:] = np.array([loc[0], loc[1], loc[2], np.mean(src_patch), src_prob, np.mean(tgt_patch), tgt_prob])
+                #f = open("pacth_locations.txt","a")
+                #s = "X={0} Y={1} Z={2} \t mu_s={3} mu_t={4} \t prob_s={5} prob_t={6}\n".format(loc[0], loc[1], loc[2],
+                #                                                                         np.mean(src_patch),
+                #                                                                         np.mean(tgt_patch), src_prob,
+                #                                                                         tgt_prob)
+                #f.write(s)
+                #f.close()
                 
                 #print("src mu:{0} src p:{1}  tgt mu:{2} tgt p:{3}\n".format(np.mean(src_patch), src_prob,
                 #                                                           np.mean(tgt_patch), tgt_prob))
@@ -181,34 +184,38 @@ class BatchDataset:
                 
                 p_count += 1
 
-            if p_count >=self.patch_num:
+            if p_count >= self.patch_num:
                 break
         
         src_patches = self.list2array(src_patches)
+        src_patches = self.create_batch(src_patches)
         tgt_patches = self.list2array(tgt_patches)
-
+        tgt_patches = self.create_batch(tgt_patches)
+        '''
+        from scipy import stats
+        import pandas as pd
+        m = stats.mode(locat)
+        locat[2501,:] = m[0]
+        df = pd.DataFrame(locat)
+        df.to_csv("2500_0.1_to_0.5.csv")
+        '''
         if self.flow_loss == 'on':
            fx_patches = self.list2array(fx_patches)
-           fy_patches = self.list2array(fy_patches)  
+           fx_patches = self.create_batch(fx_patches)
+           fy_patches = self.list2array(fy_patches)
+           fy_patches = self.create_batch(fy_patches)
            fz_patches = self.list2array(fz_patches)
+           fz_patches = self.create_batch(fz_patches)
            ix_patches = self.list2array(ix_patches)
-           iy_patches = self.list2array(iy_patches)  
+           ix_patches = self.create_batch(ix_patches)
+           iy_patches = self.list2array(iy_patches)
+           iy_patches = self.create_batch(iy_patches)
            iz_patches = self.list2array(iz_patches)
+           iz_patches = self.create_batch(iz_patches)
 
-        
-        batches = len(src_patches)//self.Batch_size
-        src_batches = []
-        tgt_batches = []
-        s=0
+           flow = [fx_patches, fy_patches, fz_patches, ix_patches, iy_patches, iz_patches]
 
-        for b in range(batches):
-            src_batch = src_patches[s:s+self.Batch_size,:,:,:]
-            src_batch = np.reshape(src_batch, (self.Batch_size, patch_size[0], patch_size[1], patch_size[2], 1))
-            tgt_batch = tgt_patches[s:s+self.Batch_size,:,:,:]
-            tgt_batch = np.reshape(tgt_batch, (self.Batch_size, patch_size[0], patch_size[1], patch_size[2], 1))
-            src_batches.insert(b, src_batch)
-            tgt_batches.insert(b, tgt_batch)
-            s += self.Batch_size
-
-        return src_batches,tgt_batches
+           return src_patches, tgt_patches, flow
+        else:
+            return src_patches, tgt_patches
 

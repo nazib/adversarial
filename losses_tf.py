@@ -73,15 +73,28 @@ def simple_kl(mean,logvar):
 
 def flow_dist_loss(predict_flow, labelFlow):
 
-    pf_flow = predict_flow[:, :, :, :, 0:3]
-    pb_flow = predict_flow[:, :, :, :, 3:6]
+    fx = labelFlow[:, :, :, :, 0]
+    fy = labelFlow[:, :, :, :, 1]
+    fz = labelFlow[:, :, :, :, 2]
+    ix = labelFlow[:, :, :, :, 3]
+    iy = labelFlow[:, :, :, :, 4]
+    iz = labelFlow[:, :, :, :, 5]
 
-    lf_flow = labelFlow[:, :, :, :, 0:3]
-    lb_flow = labelFlow[:, :, :, :, 3:6]
-    # total vaiartoion loss
-    f_variation = -tf.reduce_mean(tf.abs(pf_flow - lf_flow))
-    b_variation = -tf.reduce_mean(tf.abs(pb_flow - lb_flow))
-    return f_variation + b_variation
+    pfx = predict_flow[:, :, :, :, 0]
+    pfy = predict_flow[:, :, :, :, 1]
+    pfz = predict_flow[:, :, :, :, 2]
+    pix = predict_flow[:, :, :, :, 3]
+    piy = predict_flow[:, :, :, :, 4]
+    piz = predict_flow[:, :, :, :, 5]
+
+    lossx = tf.reduce_mean(tf.abs(fx - pfx))
+    lossy = tf.reduce_mean(tf.abs(fy - pfy))
+    lossz = tf.reduce_mean(tf.abs(fz - pfz))
+    lossix = tf.reduce_mean(tf.abs(ix - pix))
+    lossiy = tf.reduce_mean(tf.abs(iy - piy))
+    lossiz = tf.reduce_mean(tf.abs(iz - piz))
+
+    return tf.reduce_mean(lossx + lossy + lossz + lossix + lossiy + lossiz)
 
 
 def KL_loss(model):

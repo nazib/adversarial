@@ -82,7 +82,7 @@ class InverseNet_tf:
 
         x = self.Conv(x, 8, 3, 1)
         #flow = self.Conv(x, 3, 3, 1,)
-        flow = tf.layers.conv3d(x, 3, 3, 1,padding="same", kernel_initializer = tf.truncated_normal_initializer(mean=0.0 ,stddev=1e-5))
+        flow = tf.layers.conv3d(x, 3, 3, 1, padding="same", kernel_initializer = tf.truncated_normal_initializer(mean=0.0 ,stddev=1e-5))
         return flow
 
     def Conv(self,volume,output,kernel,stride):
@@ -191,8 +191,9 @@ def discriminator(Input1, Input2, type, reuse = False):
         x = tf.layers.conv3d(x, 1, 2, 2)
         x = tf.nn.leaky_relu(x, 0.2)
         x = tf.layers.flatten(x)
+        x = tf.nn.leaky_relu(x, 0.2)
         #x = tf.tanh(x,name='Tanh')
-        x = tf.nn.sigmoid(x)
+        #x = tf.nn.sigmoid(x)
         if not reuse:
             x = tf.identity(x, "Real")
         else:

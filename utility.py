@@ -98,7 +98,7 @@ def Generate_deformation(img, sigma):
      
     flow = np.zeros((img.shape[0],img.shape[1],img.shape[2],6))
     #patch = np.reshape(patch, im_shape)
-    Points = 150
+    Points = 50
     maxdeform = 0.5
     #mu = np.mean(patch)
     #pmax = np.max(patch)
