@@ -191,9 +191,9 @@ def discriminator(Input1, Input2, type, reuse = False):
         x = tf.layers.conv3d(x, 1, 2, 2)
         x = tf.nn.leaky_relu(x, 0.2)
         x = tf.layers.flatten(x)
-        x = tf.nn.leaky_relu(x, 0.2)
+        #x = tf.nn.leaky_relu(x, 0.2)
         #x = tf.tanh(x,name='Tanh')
-        #x = tf.nn.sigmoid(x)
+        x = tf.nn.sigmoid(x)
         if not reuse:
             x = tf.identity(x, "Real")
         else:

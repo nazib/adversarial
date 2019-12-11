@@ -105,21 +105,21 @@ def Generate_deformation(img, sigma):
     #above_zero = np.where(img <= (pmax-mu))
     above_zero = np.where(img <= 0.3)
 
-    RDF = np.zeros([img.shape[0], img.shape[1], img.shape[2], 6], dtype=np.float64)
+    RDF = np.zeros([img.shape[0], img.shape[1], img.shape[2], 3], dtype=np.float64)
     RDFx = np.zeros(img.shape, dtype=np.float64)
     RDFy = np.zeros(img.shape, dtype=np.float64)
     RDFz = np.zeros(img.shape, dtype=np.float64)
     RDFxf = np.zeros(img.shape, dtype=np.float64)
     RDFyf = np.zeros(img.shape, dtype=np.float64)
     RDFzf = np.zeros(img.shape, dtype=np.float64)
-
+    '''
     iRDFx = np.zeros(img.shape, dtype=np.float64)
     iRDFy = np.zeros(img.shape, dtype=np.float64)
     iRDFz = np.zeros(img.shape, dtype=np.float64)
     iRDFxf = np.zeros(img.shape, dtype=np.float64)
     iRDFyf = np.zeros(img.shape, dtype=np.float64)
     iRDFzf = np.zeros(img.shape, dtype=np.float64)
-
+    '''
     k=0
 
     while (k < Points):
@@ -140,9 +140,9 @@ def Generate_deformation(img, sigma):
         Dy = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*y
         Dz = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*z
 
-        iRDFx[x, y, z] = Dx
-        iRDFy[x, y, z] = Dy
-        iRDFz[x, y, z] = Dz
+        #iRDFx[x, y, z] = Dx
+        #iRDFy[x, y, z] = Dy
+        #iRDFz[x, y, z] = Dz
 
         # print "Point:"+str(k)
         k += 1
@@ -158,17 +158,17 @@ def Generate_deformation(img, sigma):
     RDFzf = normalize_flow(RDFzf, RDFz)
     
     #### Inverse Flow #####
-    iRDFxf = -RDFxf#gaussian_filter(RDFx, sigma=-sigma)
-    iRDFyf = -RDFyf#gaussian_filter(RDFy, sigma=-sigma)
-    iRDFzf = -RDFzf#gaussian_filter(RDFz, sigma=-sigma)
+    #iRDFxf = -RDFxf#gaussian_filter(RDFx, sigma=-sigma)
+    #iRDFyf = -RDFyf#gaussian_filter(RDFy, sigma=-sigma)
+    #iRDFzf = -RDFzf#gaussian_filter(RDFz, sigma=-sigma)
     ####################################### Normalization #############################################
    
     RDF[:, :, :, 0] = RDFxf
     RDF[:, :, :, 1] = RDFyf
     RDF[:, :, :, 2] = RDFzf
-    RDF[:, :, :, 3] = iRDFxf
-    RDF[:, :, :, 4] = iRDFyf
-    RDF[:, :, :, 5] = iRDFzf
+    #RDF[:, :, :, 3] = iRDFxf
+    #RDF[:, :, :, 4] = iRDFyf
+    #RDF[:, :, :, 5] = iRDFzf
 
     flow = RDF#ApplyDeform(patch,RDF,im_shape)
 

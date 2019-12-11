@@ -72,7 +72,7 @@ def simple_kl(mean,logvar):
     return kl
 
 def flow_dist_loss(predict_flow, labelFlow):
-
+    '''
     fx = labelFlow[:, :, :, :, 0]
     fy = labelFlow[:, :, :, :, 1]
     fz = labelFlow[:, :, :, :, 2]
@@ -93,8 +93,10 @@ def flow_dist_loss(predict_flow, labelFlow):
     lossix = tf.reduce_mean(tf.abs(ix - pix))
     lossiy = tf.reduce_mean(tf.abs(iy - piy))
     lossiz = tf.reduce_mean(tf.abs(iz - piz))
-
-    return tf.reduce_mean(lossx + lossy + lossz + lossix + lossiy + lossiz)
+    '''
+    loss = tf.reduce_mean(tf.abs(predict_flow -labelFlow))
+    #return tf.reduce_mean(lossx + lossy + lossz + lossix + lossiy + lossiz)
+    return loss*0.01
 
 
 def KL_loss(model):

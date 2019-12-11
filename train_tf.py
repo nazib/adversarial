@@ -90,7 +90,7 @@ def train(config_file):
         if config.cyc_loss == 'on':
             Cyc_loss = Cyclic_loss(src_cyc, tgt_cyc, G_net.src, G_net.tgt, config.ssim_loss)
         if config.flow_loss == 'on':
-            flow_loss = flow_dist_loss(diff, Flow) * 0.001
+            flow_loss = flow_dist_loss(diff, Flow)
 
         if config.flow_loss == 'on':
             total_loss = 0.01 * G_loss + similarity + Cyc_loss + flow_loss
@@ -127,8 +127,6 @@ def train(config_file):
             src_im, tgt_im = train_dataset_reader.create_pairs(pairs[0], pairs[1])
         else:
             src_im, tgt_im, flow = train_dataset_reader.create_pairs(pairs[0], pairs[1])
-            src_im1, tgt_im1, flow1 = train_dataset_reader.create_pairs(6, 3)
-
 
         print ("{0} Patches are selected".format(config.Number_of_patches))
         s = 0
@@ -159,8 +157,6 @@ def train(config_file):
                 .format(start, pairs[0], pairs[1], step, t_loss, g_loss, cyc_loss,d_tgt,d_src, flow_los)
             print (message)
 
-
-
             model_saving_dir = model_dir+"/models"
 
             if not os.path.isdir(model_saving_dir):
@@ -179,9 +175,13 @@ def train(config_file):
 
             s = s + batch_size
             start = start + 1
-            if start == 623:
-                import pdb
-                pdb.set_trace()
+
+        src_im = None
+        tgt_im = None
+        if config.flow_loss == 'on':
+            flow = None
+
+
 
 
 def ApplyValidation(validation_data,session, model_dir, config):

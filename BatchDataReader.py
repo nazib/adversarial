@@ -21,10 +21,10 @@ class BatchDataset:
         self.Batch_size = batch_size
         self.flow_loss = config.flow_loss
         self.patch_size = config.patch_size
-        self.min_prob, self.max_prob, self.Z,self.K = self.create_pdf()
+        self.min_prob, self.max_prob, self.Z, self.K = self.create_pdf()
 
     def create_pdf(self):
-        k = 4.6
+        k = 6.6
         step = 0.9/self.patch_num
         mu = np.arange(0, 0.9, step)
         prob = np.ones(len(mu))
@@ -69,12 +69,10 @@ class BatchDataset:
     def create_batch(self,patch_data):
         batches = len(patch_data)//self.Batch_size
         data_batches = []
-        
         s=0
-
         for b in range(batches):
             batch = patch_data[s:s+self.Batch_size,:,:,:]
-            batch = np.reshape(batch, (self.Batch_size, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+            #batch = np.reshape(batch, (self.Batch_size, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
             data_batches.insert(b, batch)
             s += self.Batch_size
         return data_batches
@@ -114,9 +112,9 @@ class BatchDataset:
            fx_patch = self.flow_fx[s_x:e_x,s_y:e_y,s_z:e_z]
            fy_patch = self.flow_fy[s_x:e_x,s_y:e_y,s_z:e_z]
            fz_patch = self.flow_fz[s_x:e_x,s_y:e_y,s_z:e_z]
-           ix_patch = self.flow_ix[s_x:e_x,s_y:e_y,s_z:e_z]
-           iy_patch = self.flow_iy[s_x:e_x,s_y:e_y,s_z:e_z]
-           iz_patch = self.flow_iz[s_x:e_x,s_y:e_y,s_z:e_z]
+           ix_patch = -self.flow_fx[s_x:e_x,s_y:e_y,s_z:e_z]
+           iy_patch = -self.flow_fy[s_x:e_x,s_y:e_y,s_z:e_z]
+           iz_patch = -self.flow_fz[s_x:e_x,s_y:e_y,s_z:e_z]
            return crop_image, crop_atlas, [fx_patch,fy_patch,fz_patch,ix_patch,iy_patch,iz_patch] 
         else:    
             return crop_image, crop_atlas
@@ -126,43 +124,46 @@ class BatchDataset:
         src = self.load_image(self.image_files[selector_src])
         tgt = self.load_image(self.image_files[selector_tgt])
 
-        locat = np.zeros((2502, 7), dtype=np.float)
+        #locat = np.zeros((2502, 7), dtype=np.float)
         
         if self.flow_loss == 'on':
            flow = utility.Generate_deformation(src, 60)
            self.flow_fx = flow[:,:,:,0]
            self.flow_fy = flow[:,:,:,1]
            self.flow_fz = flow[:,:,:,2]
-           self.flow_ix = flow[:,:,:,3]
-           self.flow_iy = flow[:,:,:,4]
-           self.flow_iz = flow[:,:,:,5]
+           #self.flow_ix = flow[:,:,:,3]
+           #self.flow_iy = flow[:,:,:,4]
+           #self.flow_iz = flow[:,:,:,5]
 
         p_count =0
-        
-        src_patches = []
-        tgt_patches = []
+        src_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+        tgt_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+        s = 0
         #src_patch_ed =[]
         #tgt_patch_ed =[]
         if self.flow_loss == 'on':
-           fx_patches = []
-           fy_patches = []
-           fz_patches = []
-           ix_patches = []
-           iy_patches = []
-           iz_patches = []
+           fx_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+           fy_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+           fz_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+           ix_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+           iy_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
+           iz_patches = np.zeros((self.patch_num, self.patch_size[0], self.patch_size[1], self.patch_size[2], 1))
 
         while True:
             if self.flow_loss == 'on':
-               src_patch, tgt_patch, flow_patches = self.random_crop(src,tgt,self.patch_size)
+               src_patch, tgt_patch, flow_patches = self.random_crop(src, tgt, self.patch_size)
             else:
                src_patch, tgt_patch = self.random_crop(src, tgt, self.patch_size)
 
             src_prob = self.check_probabiliy(src_patch)
             tgt_prob = self.check_probabiliy(tgt_patch)
 
-            if (src_prob >= self.min_prob and src_prob<= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
-                src_patches.append(src_patch)
-                tgt_patches.append(tgt_patch)
+            if (src_prob >= self.min_prob and src_prob <= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
+                src_patches[p_count, :, :, :, 0] = src_patch
+                tgt_patches[p_count, :, :, :, 0] = tgt_patch
+                #src_patches.append(src_patch)
+                #tgt_patches.append(tgt_patch)
+
                 #locat[p_count,:] = np.array([loc[0], loc[1], loc[2], np.mean(src_patch), src_prob, np.mean(tgt_patch), tgt_prob])
                 #f = open("pacth_locations.txt","a")
                 #s = "X={0} Y={1} Z={2} \t mu_s={3} mu_t={4} \t prob_s={5} prob_t={6}\n".format(loc[0], loc[1], loc[2],
@@ -172,24 +173,23 @@ class BatchDataset:
                 #f.write(s)
                 #f.close()
                 
-                #print("src mu:{0} src p:{1}  tgt mu:{2} tgt p:{3}\n".format(np.mean(src_patch), src_prob,
-                #                                                           np.mean(tgt_patch), tgt_prob))
+                print("src mu:{0} src p:{1}  tgt mu:{2} tgt p:{3} Count= {4}\n".format(np.mean(src_patch), src_prob,
+                                                                           np.mean(tgt_patch), tgt_prob,p_count))
                 if self.flow_loss == 'on':
-                   fx_patches.append(flow_patches[0])
-                   fy_patches.append(flow_patches[1])
-                   fz_patches.append(flow_patches[2])
-                   ix_patches.append(flow_patches[3])
-                   iy_patches.append(flow_patches[4])
-                   iz_patches.append(flow_patches[5])
-                
+                   fx_patches[p_count, :, :, :, 0] = flow_patches[0]
+                   fy_patches[p_count, :, :, :, 0] = flow_patches[1]
+                   fz_patches[p_count, :, :, :, 0] = flow_patches[2]
+                   ix_patches[p_count, :, :, :, 0] = flow_patches[3]
+                   iy_patches[p_count, :, :, :, 0] = flow_patches[4]
+                   iz_patches[p_count, :, :, :, 0] = flow_patches[5]
                 p_count += 1
 
             if p_count >= self.patch_num:
                 break
         
-        src_patches = self.list2array(src_patches)
+        #src_patches = self.list2array(src_patches)
         src_patches = self.create_batch(src_patches)
-        tgt_patches = self.list2array(tgt_patches)
+        #tgt_patches = self.list2array(tgt_patches)
         tgt_patches = self.create_batch(tgt_patches)
         '''
         from scipy import stats
@@ -200,18 +200,25 @@ class BatchDataset:
         df.to_csv("2500_0.1_to_0.5.csv")
         '''
         if self.flow_loss == 'on':
-           fx_patches = self.list2array(fx_patches)
+           #fx_patches = self.list2array(fx_patches)
            fx_patches = self.create_batch(fx_patches)
-           fy_patches = self.list2array(fy_patches)
+           #fy_patches = self.list2array(fy_patches)
            fy_patches = self.create_batch(fy_patches)
-           fz_patches = self.list2array(fz_patches)
+           #fz_patches = self.list2array(fz_patches)
            fz_patches = self.create_batch(fz_patches)
-           ix_patches = self.list2array(ix_patches)
+           #ix_patches = self.list2array(ix_patches)
            ix_patches = self.create_batch(ix_patches)
-           iy_patches = self.list2array(iy_patches)
+           #iy_patches = self.list2array(iy_patches)
            iy_patches = self.create_batch(iy_patches)
-           iz_patches = self.list2array(iz_patches)
+           #iz_patches = self.list2array(iz_patches)
            iz_patches = self.create_batch(iz_patches)
+
+           del self.flow_fx
+           del self.flow_fy
+           del self.flow_fz
+           del flow_patches
+           del src_patch
+           del tgt_patch
 
            flow = [fx_patches, fy_patches, fz_patches, ix_patches, iy_patches, iz_patches]
 
