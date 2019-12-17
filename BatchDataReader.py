@@ -3,8 +3,15 @@ import nibabel as nib
 import h5py
 import numpy as np
 import SimpleITK as sitk
-from measurment import *
-import utility
+#from measurment import *
+from itertools import permutations
+import partition
+#import BatchDataReader
+import os
+import sys
+import glob
+import time
+#from scipy.ndimage.filters import gaussian_filter
 
 class BatchDataset:
     images = []
@@ -12,15 +19,26 @@ class BatchDataset:
     batch_offset = 0
     epochs_completed = 0
 
-    def __init__(self, data_list, batch_size, config, lower=0.1, upper=0.5):   ### 0.1 for 10% and 0.2 for 25%
+    def __init__(self, data_dir, batch_size, patch_dir=None, config=None, lower=0.1, upper=0.5):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
-        self.image_files = data_list
-        self.patch_num = config.Number_of_patches
+        self.image_files = glob.glob(data_dir+"/*.nii.gz")
         self.mean_lower = lower
         self.mean_upper = upper
         self.Batch_size = batch_size
-        self.flow_loss = config.flow_loss
-        self.patch_size = config.patch_size
+        
+        if patch_dir!=None:
+            self.Patch_dir = patch_dir
+     
+        if config != None:
+            self.flow_loss = config.flow_loss
+            self.patch_size = config.patch_size
+            self.patch_num = config.Number_of_patches
+        else:
+            self.patch_num = 2500
+            self.patch_size =[64,64,64]
+            self.flow_loss = None
+
+    
         self.min_prob, self.max_prob, self.Z, self.K = self.create_pdf()
 
     def create_pdf(self):
@@ -49,6 +67,22 @@ class BatchDataset:
             prob = 0.0
 
         return prob
+    
+    def normalize_intensity(self,brain,range):
+        m,n,c=brain.shape
+        imMin=np.min(brain)
+        imMax=np.max(brain)
+
+        nMin=range[0]
+        nMax=range[1]
+
+        multi=((nMax-nMin)/np.float((imMax-imMin)))+nMin
+        imgMin=np.zeros([m,n,c],dtype=float)
+        imgMin[:,:,:]=imMin
+
+        brain=(brain-imgMin)*multi
+        return brain
+
 
     def load_image(self, filename):
         f = nib.load(filename)
@@ -77,34 +111,29 @@ class BatchDataset:
             s += self.Batch_size
         return data_batches
 
+    def random_crop(self, vol1, vol2):
         
-        
-
-    def random_crop(self, images, atlas,size):
-        crop_image = []
-        crop_labels = []
-        
-        x, y, z = images.shape
-        if size[0] > x or size[1] > y or size[2] > z:
+        x, y, z = vol1.shape
+        if self.patch_size[0] > x or self.patch_size[1] > y or self.patch_size[2] > z:
             raise IndexError("Please input the right size")
-        random_center_x = random.randint(size[0] / 2, x - size[0] / 2)
-        random_center_y = random.randint(size[1] / 2, y - size[1] / 2)
-        random_center_z = random.randint(size[2] / 2, z - size[2] / 2)
+        random_center_x = random.randint(self.patch_size[0] / 2, x - self.patch_size[0] / 2)
+        random_center_y = random.randint(self.patch_size[1] / 2, y - self.patch_size[1] / 2)
+        random_center_z = random.randint(self.patch_size[2] / 2, z - self.patch_size[2] / 2)
 
-        s_x = random_center_x - size[0] // 2
-        e_x = random_center_x + size[0] // 2
-        s_y = random_center_y - size[1] // 2
-        e_y = random_center_y + size[1] // 2
-        s_z = random_center_z - size[2] // 2
-        e_z = random_center_z + size[2] // 2
+        s_x = random_center_x - self.patch_size[0] // 2
+        e_x = random_center_x + self.patch_size[0] // 2
+        s_y = random_center_y - self.patch_size[1] // 2
+        e_y = random_center_y + self.patch_size[1] // 2
+        s_z = random_center_z - self.patch_size[2] // 2
+        e_z = random_center_z + self.patch_size[2] // 2
 
-        crop_image = images[s_x:e_x,s_y:e_y,s_z:e_z]
+        crop_vol1 = vol1[s_x:e_x,s_y:e_y,s_z:e_z]
 
-        crop_atlas = atlas[s_x:e_x,s_y:e_y,s_z:e_z]
+        crop_vol2 = vol2[s_x:e_x,s_y:e_y,s_z:e_z]
 
-        crop_image = np.array(crop_image)
+        crop_vol1 = np.array(crop_vol1)
 
-        crop_atlas = np.array(crop_atlas)
+        crop_vol2 = np.array(crop_vol2)
 
         #location = np.array([random_center_x, random_center_y, random_center_z])
 
@@ -115,9 +144,9 @@ class BatchDataset:
            ix_patch = -self.flow_fx[s_x:e_x,s_y:e_y,s_z:e_z]
            iy_patch = -self.flow_fy[s_x:e_x,s_y:e_y,s_z:e_z]
            iz_patch = -self.flow_fz[s_x:e_x,s_y:e_y,s_z:e_z]
-           return crop_image, crop_atlas, [fx_patch,fy_patch,fz_patch,ix_patch,iy_patch,iz_patch] 
+           return crop_vol2, crop_vol1, [fx_patch,fy_patch,fz_patch,ix_patch,iy_patch,iz_patch] 
         else:    
-            return crop_image, crop_atlas
+            return crop_vol2, crop_vol1
     
     def create_pairs(self, selector_src, selector_tgt):
 
@@ -127,7 +156,7 @@ class BatchDataset:
         #locat = np.zeros((2502, 7), dtype=np.float)
         
         if self.flow_loss == 'on':
-           flow = utility.Generate_deformation(src, 60)
+           flow = self.Generate_deformation(src, 60)
            self.flow_fx = flow[:,:,:,0]
            self.flow_fy = flow[:,:,:,1]
            self.flow_fz = flow[:,:,:,2]
@@ -151,9 +180,9 @@ class BatchDataset:
 
         while True:
             if self.flow_loss == 'on':
-               src_patch, tgt_patch, flow_patches = self.random_crop(src, tgt, self.patch_size)
+               src_patch, tgt_patch, flow_patches = self.random_crop(src, tgt)
             else:
-               src_patch, tgt_patch = self.random_crop(src, tgt, self.patch_size)
+               src_patch, tgt_patch = self.random_crop(src, tgt)
 
             src_prob = self.check_probabiliy(src_patch)
             tgt_prob = self.check_probabiliy(tgt_patch)
@@ -225,4 +254,144 @@ class BatchDataset:
            return src_patches, tgt_patches, flow
         else:
             return src_patches, tgt_patches
+    
+    def extract_Hpatches(self):
+    
+        x = np.arange(len(self.image_files))
+        total_pairs = list(permutations(x, 2))
+        
+        for pair in total_pairs:
+            batch_pair=[]
+            folder_str = "{0}/{1}_vs_{2}/".format(self.Patch_dir, pair[0],pair[1])
+            
+            if not os.path.isdir(folder_str):
+                os.mkdir(folder_str)
+            
+            start = time.clock()
+
+            im1 = self.load_image(self.image_files[pair[0]])
+            im1 = self.normalize_intensity(im1,[0.0,1.0])
+            im2 = self.load_image(self.image_files[pair[1]])
+            im2 = self.normalize_intensity(im2,[0.0,1.0])
+            
+            p_count = 0
+            src_patches = np.zeros((self.patch_num, 64, 64, 64, 1))
+            tgt_patches = np.zeros((self.patch_num, 64, 64, 64, 1))
+
+            while True:
+                src_patch, tgt_patch = self.random_crop(im1, im2)
+                src_prob = self.check_probabiliy(src_patch)
+                tgt_prob = self.check_probabiliy(tgt_patch)
+                
+                if (src_prob >= self.min_prob and src_prob <= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
+                    print("Mu 1 :{0} Mu 2:{1}\n".format(np.mean(src_patch),np.mean(tgt_patch)))
+                    src_patches[p_count, :, :, :, 0] = src_patch
+                    tgt_patches[p_count, :, :, :, 0] = tgt_patch
+
+                p_count += 1
+
+                if p_count >= self.patch_num:
+                    break
+                
+            src_batch = self.create_batch(src_patches)
+            tgt_batch = self.create_batch(tgt_patches)
+            batch_pair.insert(0,src_batch)
+            batch_pair.insert(1,tgt_batch)
+
+            data_file = folder_str + "patch_pair.h5"
+            hf = h5py.File(data_file,"w")
+            hf.create_dataset('moving', data=batch_pair)
+            hf.close()
+            end = time.clock()
+            print("Batch saved:{0} Time required:{1}".format(data_file, (end-start)))
+        
+        print("Dtabase Creation Complete")
+    
+    def Generate_deformation(self,img, sigma):
+    
+        #img = nib.load(img).get_data()
+        #img = set_mid_img(img,cSize=(512,540,169),dSize=(576,576,192))
+        m,n,c = img.shape
+        if m!=n:
+            img = partition.set_mid_img(img, cSize=(m-128,n,c), dSize=(m,m,c))
+        
+        flow = np.zeros((img.shape[0],img.shape[1],img.shape[2],6))
+        #patch = np.reshape(patch, im_shape)
+        Points = 50
+        maxdeform = 0.5
+        #mu = np.mean(patch)
+        #pmax = np.max(patch)
+        #above_zero = np.where(img <= (pmax-mu))
+        above_zero = np.where(img <= 0.3)
+
+        RDF = np.zeros([img.shape[0], img.shape[1], img.shape[2], 3], dtype=np.float64)
+        RDFx = np.zeros(img.shape, dtype=np.float64)
+        RDFy = np.zeros(img.shape, dtype=np.float64)
+        RDFz = np.zeros(img.shape, dtype=np.float64)
+        RDFxf = np.zeros(img.shape, dtype=np.float64)
+        RDFyf = np.zeros(img.shape, dtype=np.float64)
+        RDFzf = np.zeros(img.shape, dtype=np.float64)
+        '''
+        iRDFx = np.zeros(img.shape, dtype=np.float64)
+        iRDFy = np.zeros(img.shape, dtype=np.float64)
+        iRDFz = np.zeros(img.shape, dtype=np.float64)
+        iRDFxf = np.zeros(img.shape, dtype=np.float64)
+        iRDFyf = np.zeros(img.shape, dtype=np.float64)
+        iRDFzf = np.zeros(img.shape, dtype=np.float64)
+        '''
+        k=0
+
+        while (k < Points):
+            voxel_idx = np.long(np.random.randint(0, len(above_zero[0]) - 1, 1, dtype=np.int64))
+            x = above_zero[0][voxel_idx]
+            y = above_zero[1][voxel_idx]
+            z = above_zero[2][voxel_idx]
+
+            Dx = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*x
+            Dy = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*y
+            Dz = ((np.random.ranf([1]))[0] - 0.5) * maxdeform*z
+
+            RDFx[x, y, z] = Dx
+            RDFy[x, y, z] = Dy
+            RDFz[x, y, z] = Dz
+
+            Dx = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*x
+            Dy = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*y
+            Dz = ((np.random.ranf([1]))[0] + 0.5) * maxdeform*z
+
+            #iRDFx[x, y, z] = Dx
+            #iRDFy[x, y, z] = Dy
+            #iRDFz[x, y, z] = Dz
+
+            # print "Point:"+str(k)
+            k += 1
+
+            # del BorderMask
+
+        RDFxf = gaussian_filter(RDFx, sigma=sigma)
+        RDFyf = gaussian_filter(RDFy, sigma=sigma)
+        RDFzf = gaussian_filter(RDFz, sigma=sigma)
+        
+        RDFxf = normalize_flow(RDFxf, RDFx)
+        RDFyf = normalize_flow(RDFyf, RDFy)
+        RDFzf = normalize_flow(RDFzf, RDFz)
+        
+        #### Inverse Flow #####
+        #iRDFxf = -RDFxf#gaussian_filter(RDFx, sigma=-sigma)
+        #iRDFyf = -RDFyf#gaussian_filter(RDFy, sigma=-sigma)
+        #iRDFzf = -RDFzf#gaussian_filter(RDFz, sigma=-sigma)
+        ####################################### Normalization #############################################
+    
+        RDF[:, :, :, 0] = RDFxf
+        RDF[:, :, :, 1] = RDFyf
+        RDF[:, :, :, 2] = RDFzf
+        #RDF[:, :, :, 3] = iRDFxf
+        #RDF[:, :, :, 4] = iRDFyf
+        #RDF[:, :, :, 5] = iRDFzf
+
+        flow = RDF#ApplyDeform(patch,RDF,im_shape)
+
+        return flow
+
+
 

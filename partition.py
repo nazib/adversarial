@@ -111,15 +111,15 @@ class PatchUtility:
             
         return self.patches
 
-    def depth_join(self,all_starts,option='image'):
+    def depth_join(self,all_starts, option='image'):
 
         while all_starts[2] < self.depth_terminate:
             region = (slice(all_starts[0], all_starts[0] + self.patchShape[0]),
                       slice(all_starts[1], all_starts[1] + self.patchShape[1]),
                       slice(all_starts[2], all_starts[2] + self.patchShape[2]))
-            patch = self.patches[self.CmbCount,:,:,:]
+            patch = self.patches[self.CmbCount, :, :, :]
            
-            if self.overlap_allowed>0.0:
+            if self.overlap_allowed > 0.0:
 
                 if all_starts[2]>self.jump_slice and all_starts[2]<self.depth_terminate:
                     pre_start = all_starts[2]-self.jump_slice-1
