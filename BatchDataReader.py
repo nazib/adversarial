@@ -22,6 +22,7 @@ class BatchDataset:
     def __init__(self, data_dir, batch_size, patch_dir=None, config=None, lower=0.1, upper=0.5):   ### 0.1 for 10% and 0.2 for 25%
         print("Initializing Batch Dataset Reader...")
         self.image_files = glob.glob(data_dir+"/*.nii.gz")
+        self.image_files.sort() 
         self.mean_lower = lower
         self.mean_upper = upper
         self.Batch_size = batch_size
@@ -262,7 +263,9 @@ class BatchDataset:
         
         for pair in total_pairs:
             batch_pair=[]
-            folder_str = "{0}/{1}_vs_{2}/".format(self.Patch_dir, pair[0],pair[1])
+            file_0 = self.image_files[pair[0]].split('/')[-1].split('.')[0].split('_')[1]
+            file_1 = self.image_files[pair[1]].split('/')[-1].split('.')[0].split('_')[1]
+            folder_str = "{0}/{1}_vs_{2}/".format(self.Patch_dir,file_0,file_1)
             
             if not os.path.isdir(folder_str):
                 os.mkdir(folder_str)
