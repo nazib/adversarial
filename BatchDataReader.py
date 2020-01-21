@@ -111,10 +111,10 @@ class BatchDataset:
             data_batches.insert(b, batch)
             s += self.Batch_size
         return data_batches
+    
+    def crop_location(self,vol_shape):
 
-    def random_crop(self, vol1, vol2):
-        
-        x, y, z = vol1.shape
+        x, y, z = vol_shape
         if self.patch_size[0] > x or self.patch_size[1] > y or self.patch_size[2] > z:
             raise IndexError("Please input the right size")
         random_center_x = random.randint(self.patch_size[0] / 2, x - self.patch_size[0] / 2)
@@ -127,7 +127,13 @@ class BatchDataset:
         e_y = random_center_y + self.patch_size[1] // 2
         s_z = random_center_z - self.patch_size[2] // 2
         e_z = random_center_z + self.patch_size[2] // 2
+        
+        return s_x, e_x, s_y, e_y, s_z, e_z
 
+    def random_crop(self, vol1, vol2):
+        
+        s_x, e_x, s_y, e_y, s_z, e_z = self.crop_location(vol1.shape)
+        
         crop_vol1 = vol1[s_x:e_x,s_y:e_y,s_z:e_z]
 
         crop_vol2 = vol2[s_x:e_x,s_y:e_y,s_z:e_z]
@@ -259,52 +265,56 @@ class BatchDataset:
     def extract_Hpatches(self):
     
         x = np.arange(len(self.image_files))
-        total_pairs = list(permutations(x, 2))
+        #total_pairs = list(permutations(x, 2))
         
-        for pair in total_pairs:
+        
+        for pair in range(len(self.image_files)):
             batch_pair=[]
-            file_0 = self.image_files[pair[0]].split('/')[-1].split('.')[0].split('_')[1]
-            file_1 = self.image_files[pair[1]].split('/')[-1].split('.')[0].split('_')[1]
-            folder_str = "{0}/{1}_vs_{2}/".format(self.Patch_dir,file_0,file_1)
+            file_0 = self.image_files[pair].split('/')[-1].split('.')[0].split('_')[1]
+            #file_1 = self.image_files[pair[1]].split('/')[-1].split('.')[0].split('_')[1]
+            folder_str = "{0}/{1}_nuclear/".format(self.Patch_dir,file_0)
             
             if not os.path.isdir(folder_str):
                 os.mkdir(folder_str)
             
             start = time.clock()
 
-            im1 = self.load_image(self.image_files[pair[0]])
+            im1 = self.load_image(self.image_files[pair])
             im1 = self.normalize_intensity(im1,[0.0,1.0])
-            im2 = self.load_image(self.image_files[pair[1]])
-            im2 = self.normalize_intensity(im2,[0.0,1.0])
+            #im2 = self.load_image(self.image_files[pair[1]])
+            #im2 = self.normalize_intensity(im2,[0.0,1.0])
             
-            p_count = 0
+            
             src_patches = np.zeros((self.patch_num, 64, 64, 64, 1))
-            tgt_patches = np.zeros((self.patch_num, 64, 64, 64, 1))
-
-            while True:
-                src_patch, tgt_patch = self.random_crop(im1, im2)
-                src_prob = self.check_probabiliy(src_patch)
-                tgt_prob = self.check_probabiliy(tgt_patch)
+            #tgt_patches = np.zeros((self.patch_num, 64, 64, 64, 1))
+            
+            for i in range(4):
+                batch_pair =[]
+                p_count = 0
+                while True:
+                     #src_patch, tgt_patch = self.random_crop(im1, im2)
+                     s_x, e_x, s_y, e_y, s_z, e_z = self.crop_location(im1.shape)
+                     src_patch = im1[s_x:e_x,s_y:e_y,s_z:e_z]
                 
-                if (src_prob >= self.min_prob and src_prob <= self.max_prob) and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
-                    print("Mu 1 :{0} Mu 2:{1}\n".format(np.mean(src_patch),np.mean(tgt_patch)))
-                    src_patches[p_count, :, :, :, 0] = src_patch
-                    tgt_patches[p_count, :, :, :, 0] = tgt_patch
-
-                p_count += 1
-
-                if p_count >= self.patch_num:
-                    break
+                     src_prob = self.check_probabiliy(src_patch)
+                     #tgt_prob = self.check_probabiliy(tgt_patch)
                 
-            src_batch = self.create_batch(src_patches)
-            tgt_batch = self.create_batch(tgt_patches)
-            batch_pair.insert(0,src_batch)
-            batch_pair.insert(1,tgt_batch)
+                     if (src_prob >= self.min_prob and src_prob <= self.max_prob): #and (tgt_prob >=self.min_prob and tgt_prob<=self.max_prob):
+                         print("Mu  :{0} \n".format(np.mean(src_patch)))
+                         src_patches[p_count, :, :, :, 0] = src_patch
+                         #tgt_patches[p_count, :, :, :, 0] = tgt_patch
+                         p_count += 1
+                     if p_count >= self.patch_num:
+                         break            
+                src_batch = self.create_batch(src_patches)
+                #tgt_batch = self.create_batch(tgt_patches)
+                batch_pair.insert(0, src_batch)
+                #batch_pair.insert(1,tgt_batch)
 
-            data_file = folder_str + "patch_pair.h5"
-            hf = h5py.File(data_file,"w")
-            hf.create_dataset('moving', data=batch_pair)
-            hf.close()
+                data_file = folder_str + "patch_pair_{0}.h5".format(i)
+                hf = h5py.File(data_file,"w")
+                hf.create_dataset('moving', data=batch_pair)
+                hf.close()
             end = time.clock()
             print("Batch saved:{0} Time required:{1}".format(data_file, (end-start)))
         

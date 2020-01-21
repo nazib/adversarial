@@ -497,7 +497,7 @@ if __name__=="__main__":
     #data_dir='/home/n9614885/myvoxelmorph/data/vols/15%/test/'
     #atlas_dir = '/home/n9614885/patchvm_data/atlas/003_nuclear.nii.gz'
     
-    data_dir='/home/n9614885/patchvm_data/25%/test/'
+    data_dir='/home/n9614885/CUBIC_Data/nii_merged/100%_registration/100%_data/DV/'
     #data_dir='/home/n9614885/myvoxelmorph/data/vols/15%/test/'
     #atlas_dir = '/home/n9614885/25%/test/003_nuclear_n.nii.gz'
     
@@ -510,14 +510,16 @@ if __name__=="__main__":
         data =[]
         moving = nib.load(files[i])
         moving_vol= moving.get_data()
+        moving_vol = normalize_intensity(moving_vol,[0.0,1.0])
 
         ### For 25% resolution ####
-        padded =set_mid_img(moving_vol,(540,540,169),(576,576,192))
+        #padded =set_mid_img(moving_vol,(540,540,169),(576,576,192))
+        padded =set_mid_img(moving_vol, moving_vol.shape,(2560,2176,704))
         #mov_patches = extract_patches_tf(padded,64,32)
         #patches = h5py.File(data_dir+"/0.5overlap/moving_2.h5")['moving']
-        patchEx = PatchUtility((64, 64, 64), (576,576,192), 0.0, patches=[],image=padded)
+        patchEx = PatchUtility((64, 64, 64), (2560,2176,704), 0.0, patches=[],image=padded)
         mov_patches = patchEx.extract_patches()
-        #fused = patchEx.combine_patches()
+        fused = patchEx.combine_patches()
         #mov_patches = list2array(extract_patches(padded,(64,64,64),0.0))
         print("Number of patches : "+str(len(mov_patches)))
 
@@ -538,14 +540,14 @@ if __name__=="__main__":
         fused = patchEx.combine_patches()
         #mov_patches = patition_img(moving_vol,65,32)
         #fused = patches2Img(mov_patches,(256,256,32),65,32)
-        
-        #img=nib.Nifti1Image(fused,moving.affine)
-        #nib.save(img,str(i)+".nii.gz")
         '''
-        #data_file=output_dir+"moving_"+str(i)+".h5"
-        #hf = h5py.File(data_file,"w")
-        #hf.create_dataset('moving', data=mov_patches)
-        #hf.close()
+        img=nib.Nifti1Image(fused, moving.affine)
+        nib.save(img, str(i)+".nii.gz")
+
+        data_file=output_dir+"moving_"+str(i)+".h5"
+        hf = h5py.File(data_file,"w")
+        hf.create_dataset('moving', data=mov_patches)
+        hf.close()
 
         #print("Created Moving Patches : "+data_file+" Number of patches :"+str(len(mov_patches))+"\n")
         

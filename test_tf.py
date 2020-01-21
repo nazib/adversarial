@@ -63,6 +63,7 @@ def test(configFile):
         patchEx = PatchUtility((64, 64, 64), config.TestImageSize,config.TestOverlap, patches=config.TestAtlas, image=[])
         fused_atlas = patchEx.combine_patches()
         fused_atlas = set_mid_img(fused_atlas)
+   
 
     if config.TestCubeSave == 'on':
         cube = nib.Nifti1Image(config.TestAtlas[config.TestCubeNumber, :, :, :], config.TestAffineMatrix)
@@ -89,6 +90,7 @@ def test(configFile):
         tgt_place = sess.graph.get_tensor_by_name("target:0")
         f_im = sess.graph.get_tensor_by_name('Generator/Forward_im:0')
         i_im = sess.graph.get_tensor_by_name('Generator/Inverse_im:0')
+        Flow = sess.graph.get_tensor_by_name('Generator/concat_9:0')
         #dis_out = sess.graph.get_operation_by_name('Discriminator_target/sigmoid:0')
 
 
@@ -125,14 +127,14 @@ def test(configFile):
             atlas_patch = np.reshape(atlas_patch,
                                      (1, config.TestPatchSize[0], config.TestPatchSize[1], config.TestPatchSize[2], 1))
 
-            f_image, i_image = sess.run([f_im, i_im], feed_dict={src_place: patch, tgt_place: atlas_patch})
+            f_image, i_image, flow = sess.run([f_im, i_im, Flow], feed_dict={src_place: patch, tgt_place: atlas_patch})
             f_image = np.reshape(f_image, config.TestPatchSize)
             warp_patches.append(f_image)
 
             if config.TestFlowSave == 'on':
-                flow_px.append(flow[:, :, :, 0])
-                flow_py.append(flow[:, :, :, 1])
-                flow_pz.append(flow[:, :, :, 2])
+                flow_px.append(flow[0,:, :, :, 0])
+                flow_py.append(flow[0,:, :, :, 1])
+                flow_pz.append(flow[0,:, :, :, 2])
 
         ########### Creating array from list ############
         warped = list2array(warp_patches)
@@ -146,19 +148,20 @@ def test(configFile):
             cube = nib.Nifti1Image(warped[config.TestCubeNumber, :, :, :], config.TestAffineMatrix)
             nib.save(cube, "00" + str(i) + "_" + str(config.TestCubeNumber) + "_cube.nii.gz")
 
-        if config.TestResolution == '25':
-            patchEx = PatchUtility((64,64,64),config.TestImageSize,config.TestOverlap,patches=warped,image=[])
+        if config.TestResolution == '25' or config.TestResolution == '100':
+            patchEx = PatchUtility((64, 64, 64), config.TestImageSize, config.TestOverlap, patches=warped, image=[])
             warp_image = patchEx.combine_patches()
             warp_image = set_mid_img(warp_image)
+
             #fused_atlas = set_mid_img(atlas_volumes[k,:,:,:])
             #warp_image =warp_image[:,0:375,:]
             #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
             config.TestSliceNo = 86
-            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
             config.TestSliceNo = 90
-            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
             config.TestSliceNo = 95
-            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
 
             if config.TestFlowSave == 'on':
                 patchEx = PatchUtility((64,64,64),config.TestImageSize,config.TestOverlap,patches=flowx,image=[])
@@ -170,11 +173,20 @@ def test(configFile):
                 flowx = set_mid_img(flowx)
                 flowy = set_mid_img(flowy)
                 flowz = set_mid_img(flowz)
+                flow  = np.zeros((warp_image.shape[0],warp_image.shape[1],warp_image.shape[2],3))
+                flow[:,:,:,0] = flowx
+                flow[:,:,:,1] = flowy
+                flow[:,:,:,2] = flowz
+                flow_image = nib.Nifti1Image(flow, config.TestAffineMatrix)
+                nib.save(flow_image, "00" + str(i) + ".flow.nii.gz")
+                
 
         if config.TestResolution == '10':
             ims = config.TestImageSize
             patchEx = PatchUtility((64,64,32),config.TestImageSize,config.TestOverlap,patches=warped,image=[])
             warp_image = patchEx.combine_patches()
+            warped = nib.Nifti1Image(warp_image, config.TestAffineMatrix)
+            nib.save(warped, "00" + str(i) + "_registered.nii.gz")
             #warp_image = crop_mid_img(warp_image, (256, 216, 68))
             #fused_atlas = crop_mid_img(fused_atlas, (256, 216, 68))
             #fused_atlas = atlas_volumes[k,:,:,:]
@@ -191,36 +203,25 @@ def test(configFile):
                 flowx = crop_mid_img(flowx,(256,216,68))
                 flowy = crop_mid_img(flowy,(256,216,68))
                 flowz = crop_mid_img(flowz,(256,216,68))
+                flow = np.zeros((256,216,68,3))
+                flow[:,:,:,0] = flowx
+                flow[:, :, :, 1] = flowy
+                flow[:, :, :, 2] = flowz
+                flow_image = nib.Nifti1Image(flow, config.TestAffineMatrix)
+                nib.save(flow_image, "00" + str(i) + ".flow.nii.gz")
 
-        warped = nib.Nifti1Image(warp_image, config.TestAffineMatrix)
-        nib.save(warped, "00" + str(i) + "_registered.nii.gz")
-
-        if config.TestFlowSave == 'on':
-
-            flow = np.zeros((256,216,68,3))
-            flow[:,:,:,0] = flowx
-            flow[:, :, :, 1] = flowy
-            flow[:, :, :, 2] = flowz
-            flow_image = nib.Nifti1Image(flow, config.TestAffineMatrix)
-            nib.save(flow_image, "00" + str(i) + ".flow.nii.gz")
-            '''
-            flow_x = nib.Nifti1Image(flowx, config.TestAffineMatrix)
-            flow_y = nib.Nifti1Image(flowy, config.TestAffineMatrix)
-            flow_z = nib.Nifti1Image(flowz, config.TestAffineMatrix)
-            nib.save(flow_x, "00" + str(i) + "_x.flow.nii.gz")
-            nib.save(flow_y, "00" + str(i) + "_y.flow.nii.gz")
-            nib.save(flow_z, "00" + str(i) + "_z.flow.nii.gz")
-            '''
-
+        
         end_time = time.clock()
+        ### for 100% resolution comment following lines
+        
         cc = volume_cross(warp_image,fused_atlas)
         mi = mutual_info(warp_image, fused_atlas, 30)
         output = "Brain: " + test_file_list[k] + " Ref Brain:" + config.TestAtlasFile + " CC: " + str(cc) + " MI: " + str(mi) + " Time:" + str(end_time - start_time) + "\n"
         #output = "Brain: " + test_file_list[k] + " Ref Brain:" + validation_atlases[k] + " CC: " + str(
         #   cc) + " MI: " + str(mi) + " Time:" + str(end_time - start_time) + "\n"
         print(output)
-
-        del warp_patches[:]
+        
+        #del warp_patches[:]
         i +=1
 
 if __name__ == "__main__":

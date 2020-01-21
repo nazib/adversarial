@@ -29,13 +29,13 @@ def train(config_file):
     vol_size = (config.patch_size[0], config.patch_size[1], config.patch_size[2])
     batch_size = 4
 
-    training_data = glob.glob(config.base_directory + "/train/*.nii.gz")
-    training_data.sort()
+    #training_data = glob.glob(config.base_directory + "/train/*.nii.gz")
+    #training_data.sort()
     #validation_data = training_data[len(training_data)-3:len(training_data)]
     #training_data = training_data[0:len(training_data)-3]
-    random.shuffle(training_data)
+    #random.shuffle(training_data)
 
-    train_dataset_reader = BatchDataReader.BatchDataset(training_data,batch_size,config)
+    train_dataset_reader = BatchDataReader.BatchDataset(config.base_directory + "/train",batch_size,config)
 
     model_dir = config.base_directory + config.Model_name
     if not os.path.isdir(model_dir):

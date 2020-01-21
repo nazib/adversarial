@@ -12,8 +12,8 @@ import BatchDataReader
 
 if __name__ == "__main__":
 
-    data = "/data3/DV_aligned/"
-    patch = "/data3/patches"
+    data = "/home/n9614885/100/DV_aligned/"
+    patch = "/home/n9614885/100/patches/"
 
     if len(sys.argv) != 1:
         print("Please insert data directory and pacth directory")

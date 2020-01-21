@@ -169,7 +169,7 @@ def test(configFile):
         if config.TestResolution == '25':
             patchEx = PatchUtility((64,64,64),config.TestImageSize,config.TestOverlap,patches=warped,image=[])
             warp_image = patchEx.combine_patches()
-            warp_image = set_mid_img(warp_image)
+            #warp_image = set_mid_img(warp_image)
             #fused_atlas = set_mid_img(atlas_volumes[k,:,:,:])
             #warp_image =warp_image[:,0:375,:]
             #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)

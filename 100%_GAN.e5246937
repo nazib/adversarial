@@ -1,0 +1,37 @@
+/home/n9614885/.profile: line 29: “source: command not found
+/home/n9614885/.profile: line 30: “source: command not found
+/home/n9614885/.profile: line 31: “source: command not found
+2019-12-29 20:09:20.274211: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2019-12-29 20:09:23.126223: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1392] Found device 0 with properties: 
+name: Tesla M40 24GB major: 5 minor: 2 memoryClockRate(GHz): 1.112
+pciBusID: 0000:02:00.0
+totalMemory: 22.41GiB freeMemory: 22.30GiB
+2019-12-29 20:09:23.126259: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1471] Adding visible gpu devices: 0
+2019-12-29 20:09:24.301657: I tensorflow/core/common_runtime/gpu/gpu_device.cc:952] Device interconnect StreamExecutor with strength 1 edge matrix:
+2019-12-29 20:09:24.301698: I tensorflow/core/common_runtime/gpu/gpu_device.cc:958]      0 
+2019-12-29 20:09:24.301704: I tensorflow/core/common_runtime/gpu/gpu_device.cc:971] 0:   N 
+2019-12-29 20:09:24.301820: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1084] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 20650 MB memory) -> physical GPU (device: 0, name: Tesla M40 24GB, pci bus id: 0000:02:00.0, compute capability: 5.2)
+2020-01-02 03:53:02.843856: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:53:25.680399: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:53:48.512264: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:54:11.327627: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:54:34.106527: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:54:56.863295: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:55:19.698941: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:55:42.475941: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:56:05.269196: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:56:28.033291: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:56:50.808010: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:57:13.628854: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:57:36.454160: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+2020-01-02 03:57:59.165631: E tensorflow/core/util/events_writer.cc:104] Write failed because file could not be opened.
+Using TensorFlow backend.
+Traceback (most recent call last):
+  File "train_100.py", line 238, in <module>
+  File "train_100.py", line 124, in train
+  File "/home/n9614885/.local/lib/python3.6/site-packages/h5py/_hl/files.py", line 394, in __init__
+  File "/home/n9614885/.local/lib/python3.6/site-packages/h5py/_hl/files.py", line 170, in make_fid
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 85, in h5py.h5f.open
+OSError: Unable to open file (unable to open file: name = '/home/n9614885/100//patches/1-2_vs_1-5/patch_pair.h5', errno = 24, error message = 'Too many open files', flags = 0, o_flags = 0)

@@ -21,7 +21,7 @@ for i in range(0,len(files)):
         os.mkdir(out_put_dir)
     ## Regid+Affine+B-spline Registration    
     ## Regid Registration
-
+    
     
     cmd="antsRegistration --dimensionality 3 --metric CC["+atlas_file[i]+","+moving_file+",1,2] "+\
     "--interpolation Linear --transform Rigid[0.1] --initial-moving-transform "+\
