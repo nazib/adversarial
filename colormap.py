@@ -141,8 +141,6 @@ def overlay_slices(slice1,slice2,config_obj,file_no):
     
     overlay1_name = "OV_00{0}_{1}_{2}{3}.jpg".format(file_no,config_obj.TestSliceNo,config_obj.TestModelNumber,config_obj.TestModelType)
     imsave(overlay1_name, overlay1)
-
-
     diff = slice1 - slice2
     #diff = normalize_intensity2D(diff,[0,255])
     #diff  = normalize_intensity2D((1-np.abs(diff)),[0.0,1.0])

@@ -32,7 +32,6 @@ def train(config_file):
     training_data = os.listdir(config.base_directory + "/train/")
     random.shuffle(training_data)
 
-
     #train_dataset_reader = BatchDataReader.BatchDataset(training_data,batch_size,config)
 
     model_dir = config.base_directory + config.Model_name
@@ -121,67 +120,67 @@ def train(config_file):
     
     for pairs in total_pairs:
 
-        if config.flow_loss == 'off':
-            data_file = h5py.File(config.base_directory + "/train/"+training_data[pairs[0]]+"/patch_pair.h5","r")['moving']
-            src_im = data_file[0]
-            data_file = h5py.File(config.base_directory + "/train/"+training_data[pairs[1]]+"/patch_pair.h5","r")['moving']
-            tgt_im = data_file[0]
-            del data_file
-        else:
-            src_im, tgt_im, flow = train_dataset_reader.create_pairs(pairs[0], pairs[1])
+        for i in range(4):
 
-        print ("{0} Patches are selected".format(config.Number_of_patches))
-        s = 0
-        for step in range(len(src_im)):
+            if config.flow_loss == 'off':
+                data_file = h5py.File(config.base_directory + "/train/"+training_data[pairs[0]]+"/patch_pair_{0}.h5".format(i),"r")['moving']
+                src_im = data_file[0]
+                data_file = h5py.File(config.base_directory + "/train/"+training_data[pairs[1]]+"/patch_pair_{0}.h5".format(i),"r")['moving']
+                tgt_im = data_file[0]
+                del data_file
 
-            src_patch = src_im[step]
-            tgt_patch = tgt_im[step]
+            print ("{0} Patches are selected".format(config.Number_of_patches))
+            s = 0
+            for step in range(len(src_im)):
 
-            d_tgt, d_src, _ = sess.run([Dis_tgt_loss, Dis_src_loss, Dis_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch,
-                                                                                                         Dis_input_src: src_patch})
+                src_patch = src_im[step]
+                tgt_patch = tgt_im[step]
 
-            if config.flow_loss == 'on':
-                flow_label = np.reshape([flow[0][step],flow[1][step],flow[2][step],flow[3][step], flow[4][step], flow[5][step]],
-                                        (batch_size, config.patch_size[0],config.patch_size[1], config.patch_size[2], 6))
-                t_loss, g_loss, cyc_loss, flow_los, _ = sess.run([total_loss, G_loss, Cyc_loss, flow_loss , G_optimizer],
-                feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt:tgt_patch, Dis_input_src:src_patch, diff: flow_label})
+                d_tgt, d_src, _ = sess.run([Dis_tgt_loss, Dis_src_loss, Dis_optimizer], feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt: tgt_patch,
+                                                                                                             Dis_input_src: src_patch})
 
-                train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt, d_src, flow_los])
-            else:
-                t_loss, g_loss, cyc_loss, _ = sess.run([total_loss, G_loss, Cyc_loss, G_optimizer],
-                                                                 feed_dict={src: src_patch, tgt: tgt_patch,
-                                                                            Dis_input_tgt: tgt_patch,
-                                                                            Dis_input_src: src_patch})
-                train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt, d_src, 0.0])
-                flow_los = 0.0
+                if config.flow_loss == 'on':
+                    flow_label = np.reshape([flow[0][step],flow[1][step],flow[2][step],flow[3][step], flow[4][step], flow[5][step]],
+                                            (batch_size, config.patch_size[0],config.patch_size[1], config.patch_size[2], 6))
+                    t_loss, g_loss, cyc_loss, flow_los, _ = sess.run([total_loss, G_loss, Cyc_loss, flow_loss , G_optimizer],
+                    feed_dict={src: src_patch, tgt: tgt_patch, Dis_input_tgt:tgt_patch, Dis_input_src:src_patch, diff: flow_label})
 
-            message = "Start:{0} Paris :{1}, Step :{2} t_Loss:{3} G_loss: {4} Cyc_loss:{5} D_tgt:{6} D_src:{7} Flow loss:{8} \n"\
-                .format(start, training_data[pairs], step, t_loss, g_loss, cyc_loss,d_tgt,d_src, flow_los)
-            print (message)
-
-            model_saving_dir = model_dir+"/models"
-
-            if not os.path.isdir(model_saving_dir):
-                os.mkdir(model_saving_dir)
-
-            model_saving_name = model_dir.split('/')[-1]
-
-            if start % config.Model_saver == 0:
-                if start == 0:
-                    model_saver.save(sess,model_saving_dir+'/'+model_saving_name, global_step=start)
+                    train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt, d_src, flow_los])
                 else:
-                    model_saver.save(sess, model_saving_dir+'/'+model_saving_name, global_step=start)
+                    t_loss, g_loss, cyc_loss, _ = sess.run([total_loss, G_loss, Cyc_loss, G_optimizer],
+                                                                     feed_dict={src: src_patch, tgt: tgt_patch,
+                                                                                Dis_input_tgt: tgt_patch,
+                                                                                Dis_input_src: src_patch})
+                    train_loss = np.double([t_loss, g_loss, cyc_loss, d_tgt, d_src, 0.0])
+                    flow_los = 0.0
 
-            if start % 10== 0:
-                write_summary(start, sess, train_loss, model_dir)
+                message = "Start:{0} Paris :{1} vs {2}, Step :{3} t_Loss:{4} G_loss: {5} Cyc_loss:{6} D_tgt:{7} D_src:{8} Flow loss:{9} \n"\
+                    .format(start, training_data[pairs[0]], training_data[pairs[1]], step, t_loss, g_loss, cyc_loss,d_tgt,d_src, flow_los)
+                print (message)
 
-            s = s + batch_size
-            start = start + 1
+                model_saving_dir = model_dir+"/models"
 
-        src_im = None
-        tgt_im = None
-        if config.flow_loss == 'on':
-            flow = None
+                if not os.path.isdir(model_saving_dir):
+                    os.mkdir(model_saving_dir)
+
+                model_saving_name = model_dir.split('/')[-1]
+
+                if start % config.Model_saver == 0:
+                    if start == 0:
+                        model_saver.save(sess,model_saving_dir+'/'+model_saving_name, global_step=start)
+                    else:
+                        model_saver.save(sess, model_saving_dir+'/'+model_saving_name, global_step=start)
+
+                if start % 10== 0:
+                    write_summary(start, sess, train_loss, model_dir)
+
+                s = s + batch_size
+                start = start + 1
+
+            src_im = None
+            tgt_im = None
+            if config.flow_loss == 'on':
+                flow = None
 
 
 

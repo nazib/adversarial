@@ -155,13 +155,13 @@ def test(configFile):
 
             #fused_atlas = set_mid_img(atlas_volumes[k,:,:,:])
             #warp_image =warp_image[:,0:375,:]
-            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
             config.TestSliceNo = 86
-            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
             config.TestSliceNo = 90
-            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
             config.TestSliceNo = 95
-            #overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
+            overlay_slices(warp_image[:, :, config.TestSliceNo], fused_atlas[:, :, config.TestSliceNo], config, i)
 
             if config.TestFlowSave == 'on':
                 patchEx = PatchUtility((64,64,64),config.TestImageSize,config.TestOverlap,patches=flowx,image=[])

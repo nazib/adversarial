@@ -81,7 +81,7 @@ def test(configFile):
     flow = np.zeros((1, config.TestPatchSize[0], config.TestPatchSize[1], config.TestPatchSize[2], 3), dtype=np.float)
     warp_patches = []
 
-    for k in range(len(test_file_list)):
+    for k in range(len(test_file_list)-1):
         # vol_name, seg_name = test_brain_strings[k].split(",")
         start_time = time.clock()
         F = h5py.File(test_file_list[k], "r")
@@ -119,10 +119,13 @@ def test(configFile):
 
         ########### Creating array from list ############
         warped = list2array(warp_patches)
-        data_file= "00"+str(k+1)+"_registered.h5"
+        data_file= "00"+str(k+1)+"_registered_{0}.h5".format(config.TestModelNumber)
         hf = h5py.File(data_file,"w")
         hf.create_dataset('moving', data=warped)
         hf.close()
+        end_time = time.clock()
+        print("Registration Time :{0} s".format(end_time-start_time))
+        print("Done\n")
 
 
 if __name__ == "__main__":

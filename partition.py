@@ -506,7 +506,7 @@ if __name__=="__main__":
 
     output_dir=data_dir
 
-    for i in range(0,len(files)):
+    for i in range(2,len(files)):
         data =[]
         moving = nib.load(files[i])
         moving_vol= moving.get_data()
@@ -519,7 +519,7 @@ if __name__=="__main__":
         #patches = h5py.File(data_dir+"/0.5overlap/moving_2.h5")['moving']
         patchEx = PatchUtility((64, 64, 64), (2560,2176,704), 0.0, patches=[],image=padded)
         mov_patches = patchEx.extract_patches()
-        fused = patchEx.combine_patches()
+        #fused = patchEx.combine_patches()
         #mov_patches = list2array(extract_patches(padded,(64,64,64),0.0))
         print("Number of patches : "+str(len(mov_patches)))
 
@@ -541,8 +541,8 @@ if __name__=="__main__":
         #mov_patches = patition_img(moving_vol,65,32)
         #fused = patches2Img(mov_patches,(256,256,32),65,32)
         '''
-        img=nib.Nifti1Image(fused, moving.affine)
-        nib.save(img, str(i)+".nii.gz")
+        #img=nib.Nifti1Image(fused, moving.affine)
+        #nib.save(img, str(i)+".nii.gz")
 
         data_file=output_dir+"moving_"+str(i)+".h5"
         hf = h5py.File(data_file,"w")
